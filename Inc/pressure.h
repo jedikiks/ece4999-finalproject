@@ -3,6 +3,9 @@
 
 #include "main.h"
 
+#define PRESSURE_UART_TX_PIN GPIO_PIN_2
+#define PRESSURE_UART_RX_PIN GPIO_PIN_3
+
 #define PRESSURE_REF_SENSOR_PIN GPIO_PIN_0
 #define PRESSURE_COMPRESSOR_PIN GPIO_PIN_1
 #define PRESSURE_EXHAUST_PIN GPIO_PIN_2
@@ -12,9 +15,18 @@
 #define ADC_READ_TIME 100      // in us
 #define ADC_RESOLUTION 4096.0f // 12 bit
 
-void pressure_sensor_read (float target);
-void pressure_calib_static (float target);
-void pressure_calib_dynam_step (float target1, float target2);
-void pressure_calib_dynam_ramp (float target1, float target2);
+struct Pressure;
+
+void pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc);
+void pressure_init (struct Pressure *pressure);
+void pressure_decomp (struct Pressure *pressure);
+void pressure_cleanup (struct Pressure *pressure);
+void pressure_uart_tx (struct Pressure *pressure);
+void pressure_sensor_read (struct Pressure *pressure);
+void pressure_calib_static (struct Pressure *pressure, float target);
+void pressure_calib_dynam_step (struct Pressure *pressure, float target1,
+                                float target2);
+void pressure_calib_dynam_ramp (struct Pressure *pressure, float target1,
+                                float target2);
 
 #endif // PRESSURE_H_
