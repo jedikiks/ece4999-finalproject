@@ -1,5 +1,8 @@
 #include "pressure.h"
+#include "stm32f411xe.h"
 #include "stm32f4xx_hal.h"
+#include "stm32f4xx_hal_tim.h"
+#include <stdint.h>
 
 uint8_t userint_flg = 0; // user interrupt flag
 
@@ -9,9 +12,16 @@ struct Pressure
   float val_min;
   float val_max;
   const char *units;
+  float freq;
+  float ampl;
+  float offset;
   UART_HandleTypeDef *huart;
   ADC_HandleTypeDef *hadc;
+  TIM_HandleTypeDef *htim;
+  uint32_t tim_ch;
 };
+
+uint32_t upd_dty (struct Pressure *pressure, float m_r);
 
 void
 HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
@@ -20,19 +30,37 @@ HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
     userint_flg = 1;
 }
 
+uint32_t
+upd_dty (struct Pressure *pressure, float m_r)
+{
+  pressure_sensor_read (pressure);
+  float p_i = pressure->val;
+  HAL_Delay (100);
+  pressure_sensor_read (pressure);
+
+  return m_r / ((pressure->val - p_i) / 0.1f);
+}
+
 void
-pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc)
+pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
+               TIM_HandleTypeDef *htim, uint32_t tim_ch)
 {
   struct Pressure pressure = { .val = 0.0f,
                                .val_min = 0.0f,
                                .val_max = 150.0f,
                                .units = "psi",
+                               .freq = 0.1f,
+                               .ampl = 10.0f,
+                               .offset = 0.0f,
                                .huart = huart,
-                               .hadc = hadc };
+                               .hadc = hadc,
+                               .htim = htim,
+                               .tim_ch = tim_ch };
 
   pressure_init (&pressure);
 
-  pressure_calib_static (&pressure, 10.0f);
+  // pressure_calib_static (&pressure, 10.0f);
+  pressure_calib_dynam_ramp(&pressure, 10.0f);
 
   pressure_cleanup (&pressure);
 
@@ -109,7 +137,7 @@ pressure_calib_static (struct Pressure *pressure, float target)
 
   while (!userint_flg)
     {
-      //FIXME: remove this when testing irl V
+      // FIXME: remove this when testing irl V
       pressure_uart_tx (pressure);
       HAL_Delay (10);
     }
@@ -141,24 +169,20 @@ pressure_calib_dynam_step (struct Pressure *pressure, float target1,
 }
 
 void
-pressure_calib_dynam_ramp (struct Pressure *pressure, float target1,
-                           float target2)
+pressure_calib_dynam_ramp (struct Pressure *pressure, float target)
 {
-  uint8_t min, max;
-  if (target1 < target2)
-    {
-      min = target1;
-      max = target2;
-    }
-  else
-    {
-      min = target1;
-      max = target2;
-    }
+  // Start by assuming the rate of change is 2.78psi/sec. We'll know if
+  // its slower after the first 100ms
+  float m_r = (pressure->freq * 2 * pressure->ampl) * 0.1f;
+  float m_c = 2.78f * 0.1f;
+  TIM2->CCR1 = (uint32_t)(m_r / m_c);
+  HAL_TIM_PWM_Start (pressure->htim, pressure->tim_ch);
 
-  while (pressure->val < max)
-    pressure_calib_dynam_step (pressure, pressure->val, pressure->val + 5.0f);
+  while (pressure->val < target)
+  {
+    TIM2->CCR1 = upd_dty(pressure, m_r);
+    pressure_sensor_read(pressure);
+  }
 
-  while (pressure->val > min)
-    pressure_calib_dynam_step (pressure, target1, target1 - 5.0f);
+  HAL_TIM_PWM_Stop(pressure->htim, pressure->tim_ch);
 }
