@@ -1,6 +1,7 @@
 #include "pressure.h"
 #include "stm32f411xe.h"
 #include "stm32f4xx_hal.h"
+#include "stm32f4xx_hal_gpio.h"
 #include "stm32f4xx_hal_tim.h"
 #include <stdint.h>
 
@@ -33,12 +34,13 @@ HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
 uint32_t
 upd_dty (struct Pressure *pressure, float m_r)
 {
-  pressure_sensor_read (pressure);
   float p_i = pressure->val;
   HAL_Delay (100);
+  if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1) == GPIO_PIN_SET) // simulates if compressor's on
+    pressure->val += 0.278;                 // TODO: remove this for irl
   pressure_sensor_read (pressure);
 
-  return m_r / ((pressure->val - p_i) / 0.1f);
+  return (10000-1) * (m_r / ((pressure->val - p_i) / 0.1f));
 }
 
 void
@@ -60,7 +62,7 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
   pressure_init (&pressure);
 
   // pressure_calib_static (&pressure, 10.0f);
-  pressure_calib_dynam_ramp(&pressure, 10.0f);
+  pressure_calib_dynam_ramp (&pressure, 10.0f);
 
   pressure_cleanup (&pressure);
 
@@ -120,8 +122,6 @@ pressure_sensor_read (struct Pressure *pressure)
    */
 
   pressure_uart_tx (pressure);
-  pressure->val += 0.0278;
-  HAL_Delay (10);
 }
 
 void
@@ -175,14 +175,23 @@ pressure_calib_dynam_ramp (struct Pressure *pressure, float target)
   // its slower after the first 100ms
   float m_r = (pressure->freq * 2 * pressure->ampl) * 0.1f;
   float m_c = 2.78f * 0.1f;
-  TIM2->CCR1 = (uint32_t)(m_r / m_c);
+  TIM1->CCR1 = (10000-1) * (m_r / m_c);
   HAL_TIM_PWM_Start (pressure->htim, pressure->tim_ch);
 
   while (pressure->val < target)
-  {
-    TIM2->CCR1 = upd_dty(pressure, m_r);
-    pressure_sensor_read(pressure);
-  }
+    {
+      if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1) == GPIO_PIN_SET) // simulates if compressor's on
+        pressure->val += 0.278;
 
-  HAL_TIM_PWM_Stop(pressure->htim, pressure->tim_ch);
+      HAL_Delay (100);
+
+      TIM1->CCR1 = upd_dty (pressure, m_r);
+
+      if (userint_flg)
+        break;
+    }
+
+  userint_flg = 0;
+  HAL_TIM_PWM_Stop (pressure->htim, pressure->tim_ch);
+  //pressure_decomp (pressure);
 }
