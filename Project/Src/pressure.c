@@ -26,7 +26,9 @@ struct Pressure
   uint32_t tim_ch;
 };
 
-uint32_t update_dty (struct Pressure *pressure, float m_r);
+void ramp_init (struct Pressure *pressure, float m_r, float m_c);
+void ramp_deinit (struct Pressure *pressure);
+void pressure_triwave (struct Pressure *pressure);
 
 void
 HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
@@ -62,8 +64,8 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
 
   pressure_init (&pressure);
 
-  // pressure_calib_static (&pressure, 10.0f);
-  pressure_calib_dynam_ramp (&pressure, 10.0f);
+  pressure_calib_static (&pressure, 10.0f);
+  // pressure_triwave (&pressure);
 
   pressure_cleanup (&pressure);
 
@@ -124,10 +126,6 @@ pressure_sensor_read (struct Pressure *pressure)
 
   pressure->val_last = pressure->val;
 
-  if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1)
-      == GPIO_PIN_SET) // simulates if compressor's on
-    pressure->val += 2.78 / 10;
-
   pressure_uart_tx (pressure);
 }
 
@@ -137,7 +135,11 @@ pressure_calib_static (struct Pressure *pressure, float target)
   HAL_GPIO_WritePin (GPIOA, PRESSURE_COMPRESSOR_PIN, GPIO_PIN_SET);
 
   do
-    pressure_sensor_read (pressure);
+    {
+      pressure_sensor_read (pressure);
+      pressure->val += 2.78 / 10;
+      HAL_Delay (100);
+    }
   while (pressure->val <= (target - 0.1f));
 
   HAL_GPIO_WritePin (GPIOA, PRESSURE_COMPRESSOR_PIN, GPIO_PIN_RESET);
@@ -156,26 +158,73 @@ pressure_calib_static (struct Pressure *pressure, float target)
 void
 pressure_calib_dynam_ramp (struct Pressure *pressure, float target)
 {
-  // Start by assuming the rate of change is 2.78psi/sec. We'll know if
-  // its slower after the first 100ms
+  float m_c = 2.78f;
+  if (target > 0)
+    {
+      while (pressure->val < target)
+        {
+          if (tim3_flg == 1)
+            {
+              // TODO: remove sim stuff V
+              if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1) == GPIO_PIN_SET)
+                pressure->val += m_c / 10;
+
+              pressure_sensor_read (pressure);
+
+              tim3_flg = 0;
+              tim3_wraps++;
+            }
+        }
+    }
+  else
+    {
+      while (pressure->val > target)
+        {
+          if (tim3_flg == 1)
+            {
+              // TODO: remove sim stuff V
+              if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1) == GPIO_PIN_SET)
+                pressure->val -= m_c / 10;
+
+              pressure_sensor_read (pressure);
+
+              tim3_flg = 0;
+              tim3_wraps++;
+            }
+        }
+    }
+}
+
+void
+pressure_triwave (struct Pressure *pressure)
+{
   float m_r = pressure->freq * pressure->ampl;
   float m_c = 2.78f;
+
+  ramp_init (pressure, m_r, m_c);
+
+  while (1)
+    {
+      tim3_wraps = 0;
+      pressure_calib_dynam_ramp (pressure, 10.0f);
+      tim3_wraps = 0;
+      pressure_calib_dynam_ramp (pressure, 0.0f);
+    }
+}
+
+void
+ramp_init (struct Pressure *pressure, float m_r, float m_c)
+{
   TIM2->CCR1 = pressure->htim_pwm->Init.Period * (m_r / m_c);
   HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->tim_ch);
   HAL_TIM_Base_Start_IT (pressure->htim_upd);
 
-  while (tim3_wraps < (10 * (1 / pressure->freq)))
-    {
-      if (tim3_flg == 1)
-        {
-          pressure_sensor_read (pressure);
-          tim3_flg = 0;
-          tim3_wraps++;
-        }
-    }
+  tim3_wraps = 0;
+}
 
-  userint_flg = 0;
+void
+ramp_deinit (struct Pressure *pressure)
+{
   HAL_TIM_Base_Stop (pressure->htim_upd);
   HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->tim_ch);
-  // pressure_decomp (pressure);
 }

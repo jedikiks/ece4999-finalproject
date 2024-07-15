@@ -29,6 +29,6 @@ void pressure_sensor_read (struct Pressure *pressure);
 void pressure_calib_static (struct Pressure *pressure, float target);
 void pressure_calib_dynam_step (struct Pressure *pressure, float target1,
                                 float target2);
-void pressure_calib_dynam_ramp (struct Pressure *pressure, float target);
+void pressure_calib_dynam_ramp (struct Pressure *pressure, float m_c);
 
 #endif // PRESSURE_H_
