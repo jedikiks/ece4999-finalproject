@@ -6,10 +6,12 @@
 #include <stdint.h>
 
 uint8_t userint_flg = 0; // user interrupt flag
+uint8_t tim3_flg = 0;    // send data every 100ms flag
 
 struct Pressure
 {
   float val;
+  float val_last;
   float val_min;
   float val_max;
   const char *units;
@@ -18,11 +20,12 @@ struct Pressure
   float offset;
   UART_HandleTypeDef *huart;
   ADC_HandleTypeDef *hadc;
-  TIM_HandleTypeDef *htim;
+  TIM_HandleTypeDef *htim_pwm;
+  TIM_HandleTypeDef *htim_upd;
   uint32_t tim_ch;
 };
 
-uint32_t upd_dty (struct Pressure *pressure, float m_r);
+uint32_t update_dty (struct Pressure *pressure, float m_r);
 
 void
 HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
@@ -31,33 +34,30 @@ HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
     userint_flg = 1;
 }
 
-uint32_t
-upd_dty (struct Pressure *pressure, float m_r)
+void
+HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim_pwm)
 {
-  float p_i = pressure->val;
-  HAL_Delay (100);
-  if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1) == GPIO_PIN_SET) // simulates if compressor's on
-    pressure->val += 0.278;                 // TODO: remove this for irl
-  pressure_sensor_read (pressure);
-
-  return (10000-1) * (m_r / ((pressure->val - p_i) / 0.1f));
+  tim3_flg = 1;
 }
 
 void
 pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
-               TIM_HandleTypeDef *htim, uint32_t tim_ch)
+               TIM_HandleTypeDef *htim_pwm, uint32_t tim_ch,
+               TIM_HandleTypeDef *htim_upd)
 {
   struct Pressure pressure = { .val = 0.0f,
+                               .val_last = 0.0f,
                                .val_min = 0.0f,
                                .val_max = 150.0f,
                                .units = "psi",
-                               .freq = 0.1f,
+                               .freq = 0.2f,
                                .ampl = 10.0f,
                                .offset = 0.0f,
                                .huart = huart,
                                .hadc = hadc,
-                               .htim = htim,
-                               .tim_ch = tim_ch };
+                               .htim_pwm = htim_pwm,
+                               .tim_ch = tim_ch,
+                               .htim_upd = htim_upd };
 
   pressure_init (&pressure);
 
@@ -121,6 +121,12 @@ pressure_sensor_read (struct Pressure *pressure)
   pressure_uart_tx (pressure);
    */
 
+  pressure->val_last = pressure->val;
+
+  if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1)
+      == GPIO_PIN_SET) // simulates if compressor's on
+    pressure->val += 2.78 / 10;
+
   pressure_uart_tx (pressure);
 }
 
@@ -147,51 +153,27 @@ pressure_calib_static (struct Pressure *pressure, float target)
 }
 
 void
-pressure_calib_dynam_step (struct Pressure *pressure, float target1,
-                           float target2)
-{
-  HAL_GPIO_WritePin (GPIOA, PRESSURE_COMPRESSOR_PIN, GPIO_PIN_SET);
-
-  if (target1 > target2) // Step up
-    {
-      pressure_sensor_read (pressure);
-      HAL_GPIO_WritePin (GPIOA, PRESSURE_COMPRESSOR_PIN, GPIO_PIN_RESET);
-    }
-  else // Step down
-    {
-      pressure_sensor_read (pressure);
-      HAL_GPIO_WritePin (GPIOA, PRESSURE_COMPRESSOR_PIN, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin (GPIOA, PRESSURE_EXHAUST_PIN, GPIO_PIN_SET);
-
-      pressure_sensor_read (pressure);
-      HAL_GPIO_WritePin (GPIOA, PRESSURE_EXHAUST_PIN, GPIO_PIN_RESET);
-    }
-}
-
-void
 pressure_calib_dynam_ramp (struct Pressure *pressure, float target)
 {
   // Start by assuming the rate of change is 2.78psi/sec. We'll know if
   // its slower after the first 100ms
-  float m_r = (pressure->freq * 2 * pressure->ampl) * 0.1f;
-  float m_c = 2.78f * 0.1f;
-  TIM1->CCR1 = (10000-1) * (m_r / m_c);
-  HAL_TIM_PWM_Start (pressure->htim, pressure->tim_ch);
+  float m_r = pressure->freq * pressure->ampl;
+  float m_c = 2.78f;
+  TIM2->CCR1 = pressure->htim_pwm->Init.Period * (m_r / m_c);
+  HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->tim_ch);
+  HAL_TIM_Base_Start_IT (pressure->htim_upd);
 
   while (pressure->val < target)
     {
-      if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1) == GPIO_PIN_SET) // simulates if compressor's on
-        pressure->val += 0.278;
-
-      HAL_Delay (100);
-
-      TIM1->CCR1 = upd_dty (pressure, m_r);
-
-      if (userint_flg)
-        break;
+      if (tim3_flg == 1)
+        {
+          pressure_sensor_read (pressure);
+          tim3_flg = 0;
+        }
     }
 
   userint_flg = 0;
-  HAL_TIM_PWM_Stop (pressure->htim, pressure->tim_ch);
-  //pressure_decomp (pressure);
+  HAL_TIM_Base_Stop (pressure->htim_upd);
+  HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->tim_ch);
+  // pressure_decomp (pressure);
 }
