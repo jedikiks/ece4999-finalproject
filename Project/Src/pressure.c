@@ -3,6 +3,7 @@
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_gpio.h"
 #include "stm32f4xx_hal_tim.h"
+#include <math.h>
 #include <stdint.h>
 
 uint8_t userint_flg = 0; // user interrupt flag
@@ -64,17 +65,20 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
 
   pressure_init (&pressure);
 
-  pressure_calib_static (&pressure, 10.0f);
-  // pressure_triwave (&pressure);
+  // pressure_calib_static (&pressure, 10.0f);
+  //pressure_triwave (&pressure);
+  pressure_calib_dynam_sine (&pressure);
 
-  pressure_cleanup (&pressure);
-
+  // TODO: make this a function (it's a square wave) V
   // while (1)
   //   {
-  //     pressure.val += 2.78;
-  //     pressure_uart_tx (&pressure);
-  //     HAL_Delay (1000);
+  //     tim3_wraps = 0;
+  //     pressure_calib_dynam_step (&pressure, 10.0f);
+  //     tim3_wraps = 0;
+  //     pressure_calib_dynam_step (&pressure, 0.0f);
   //   }
+
+  // pressure_cleanup (&pressure);
 }
 
 void
@@ -193,6 +197,72 @@ pressure_calib_dynam_ramp (struct Pressure *pressure, float target)
             }
         }
     }
+}
+
+void
+pressure_calib_dynam_step (struct Pressure *pressure, float target)
+{
+  if (target > 0)
+    {
+      do
+        {
+          pressure_sensor_read (pressure);
+          pressure->val += 2.78 / 10;
+          HAL_Delay (100);
+        }
+      while (pressure->val < target);
+    }
+  else
+    {
+      do
+        {
+          pressure_sensor_read (pressure);
+          pressure->val -= 2.78 / 10;
+          HAL_Delay (100);
+        }
+      while (pressure->val > target);
+    }
+
+  HAL_TIM_Base_Start_IT (pressure->htim_upd);
+  while (tim3_wraps < (10 * (1 / pressure->freq)))
+    {
+      pressure_sensor_read (pressure);
+      tim3_wraps++;
+    }
+
+  HAL_TIM_Base_Stop (pressure->htim_upd);
+}
+
+void
+pressure_calib_dynam_sine (struct Pressure *pressure)
+{
+  float ampl = 2.0f;
+  float offs = 0.0f;
+  float freq = 0.2f;
+  float sw = 0.1f; // switching in sec
+  uint8_t N = 1 / (freq * sw);
+
+  float ti[N];
+  for (uint8_t i = 0; i < N; i++)
+    ti[i] = i + (1 / freq);
+
+  float yi[N];
+  for (uint8_t i = 0; i < N; i++)
+    yi[i] = offs + (ampl * sin (2 * M_PI * freq * ti[i]));
+
+  float yr[N];
+  for (uint8_t i = 1; i < N; i++)
+    yr[i] = (yi[i] - yi[i - 1]) / (ti[i] - ti[i - 1]);
+
+  ramp_init (pressure, yr[0], 2.78f);
+
+  while (1)
+    {
+      for (uint8_t i = 0; i < N; i++)
+        pressure_calib_dynam_ramp (pressure, yr[i]);
+    }
+
+  ramp_deinit (pressure);
 }
 
 void
