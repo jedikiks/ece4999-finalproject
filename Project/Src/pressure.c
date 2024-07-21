@@ -66,7 +66,7 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
   pressure_init (&pressure);
 
   // pressure_calib_static (&pressure, 10.0f);
-  //pressure_triwave (&pressure);
+  // pressure_triwave (&pressure);
   pressure_calib_dynam_sine (&pressure);
 
   // TODO: make this a function (it's a square wave) V
@@ -240,11 +240,12 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
   float offs = 0.0f;
   float freq = 0.2f;
   float sw = 0.1f; // switching in sec
-  uint8_t N = 1 / (freq * sw);
+  float m_c = 2.78f;
+  uint8_t N = round (1.0f / (freq * sw));
 
   float ti[N];
   for (uint8_t i = 0; i < N; i++)
-    ti[i] = i + (1 / freq);
+    ti[i] = i * ((1 / freq) / N);
 
   float yi[N];
   for (uint8_t i = 0; i < N; i++)
@@ -254,12 +255,38 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
   for (uint8_t i = 1; i < N; i++)
     yr[i] = (yi[i] - yi[i - 1]) / (ti[i] - ti[i - 1]);
 
-  ramp_init (pressure, yr[0], 2.78f);
+  // Init pwm
+  TIM2->CCR1 = pressure->htim_pwm->Init.Period * (yr[0] / m_c);
+  HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->tim_ch);
+  HAL_TIM_Base_Start_IT (pressure->htim_upd);
 
+  int8_t sign = 1;
+  float a;
   while (1)
     {
-      for (uint8_t i = 0; i < N; i++)
-        pressure_calib_dynam_ramp (pressure, yr[i]);
+      for (uint8_t i = 0; i < 14; i++)
+        {
+          // Wait for 100ms
+          while (!tim3_flg)
+            ;
+
+          // DEBUG: if pwm is on, inc/dec pressure val
+          if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1) == GPIO_PIN_SET)
+            pressure->val += sign * (m_c / 10);
+
+          // Read in pressure value
+          pressure_sensor_read (pressure);
+
+          // Change dty based on rate array @ current index
+          a = yr[i];
+          TIM2->CCR1 = pressure->htim_pwm->Init.Period * (a / m_c);
+          tim3_flg = 0;
+
+          if (pressure->val > ampl)
+            sign = -1;
+          else if (pressure->val < -1 * ampl)
+            sign = 1;
+        }
     }
 
   ramp_deinit (pressure);
