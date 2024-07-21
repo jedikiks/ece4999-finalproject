@@ -241,18 +241,18 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
   float freq = 0.2f;
   float sw = 0.1f; // switching in sec
   float m_c = 2.78f;
-  uint8_t N = round (1.0f / (freq * sw));
+  long N = round (1.0f / (freq * sw));
 
   float ti[N];
   for (uint8_t i = 0; i < N; i++)
     ti[i] = i * ((1 / freq) / N);
 
   float yi[N];
-  for (uint8_t i = 0; i < N; i++)
+  for (long i = 0; i < N; i++)
     yi[i] = offs + (ampl * sin (2 * M_PI * freq * ti[i]));
 
   float yr[N];
-  for (uint8_t i = 1; i < N; i++)
+  for (long i = 1; i < N; i++)
     yr[i] = (yi[i] - yi[i - 1]) / (ti[i] - ti[i - 1]);
 
   // Init pwm
@@ -262,13 +262,19 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
 
   int8_t sign = 1;
   float a;
+  yr[0] = 0;
   while (1)
     {
-      for (uint8_t i = 0; i < 14; i++)
+      for (long i = 0; i < N; i++)
         {
           // Wait for 100ms
           while (!tim3_flg)
             ;
+
+          if (yr[i] < 0.0f)
+            sign = -1;
+          else
+            sign = 1;
 
           // DEBUG: if pwm is on, inc/dec pressure val
           if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1) == GPIO_PIN_SET)
@@ -278,14 +284,10 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
           pressure_sensor_read (pressure);
 
           // Change dty based on rate array @ current index
-          a = yr[i];
+          a = fabs(yr[i]);
           TIM2->CCR1 = pressure->htim_pwm->Init.Period * (a / m_c);
           tim3_flg = 0;
 
-          if (pressure->val > ampl)
-            sign = -1;
-          else if (pressure->val < -1 * ampl)
-            sign = 1;
         }
     }
 
