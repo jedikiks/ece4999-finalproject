@@ -16,18 +16,32 @@
 
 #define PRESSURE_PWM_FREQ 1000 // ms
 
-struct Pressure;
+struct Pressure
+{
+  float val;
+  float val_last;
+  float val_min;
+  float val_max;
+  const char *units;
+  float freq;
+  float ampl;
+  float offset;
+  UART_HandleTypeDef *huart;
+  ADC_HandleTypeDef *hadc;
+  TIM_HandleTypeDef *htim_pwm;
+  TIM_HandleTypeDef *htim_upd;
+  uint32_t tim_ch;
+};
 
 void pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
                     TIM_HandleTypeDef *htim_pwm, uint32_t tim_ch,
                     TIM_HandleTypeDef *htim_upd);
-void pressure_init (struct Pressure *pressure);
-void pressure_decomp (struct Pressure *pressure);
-void pressure_cleanup (struct Pressure *pressure);
-void pressure_uart_tx (struct Pressure *pressure);
-void pressure_sensor_read (struct Pressure *pressure);
-void pressure_calib_static (struct Pressure *pressure, float target);
-void pressure_calib_dynam_step (struct Pressure *pressure, float target);
-void pressure_calib_dynam_sine (struct Pressure *pressure);
+void pressure_cleanup (void);
+void pressure_disp (void);
+void pressure_uart_tx (void);
+void pressure_sensor_read (void);
+void pressure_calib_static (float target);
+void pressure_calib_dynam_step (float target);
+void pressure_calib_dynam_sine (void);
 
 #endif // PRESSURE_H_
