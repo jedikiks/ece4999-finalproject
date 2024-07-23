@@ -36,12 +36,14 @@ struct Pressure
 void pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
                     TIM_HandleTypeDef *htim_pwm, uint32_t tim_ch,
                     TIM_HandleTypeDef *htim_upd);
+void pressure_init (void);
 void pressure_cleanup (void);
 void pressure_disp (void);
 void pressure_uart_tx (void);
 void pressure_sensor_read (void);
 void pressure_calib_static (float target);
-void pressure_calib_dynam_step (float target);
+void pressure_calib_dynam_step (void);
+void pressure_calib_dynam_ramp (void);
 void pressure_calib_dynam_sine (void);
 
 #endif // PRESSURE_H_
