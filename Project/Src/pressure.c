@@ -8,6 +8,7 @@
 
 uint8_t userint_flg = 0; // user interrupt flag
 uint8_t tim3_flg = 0;    // 100ms timer flag
+uint32_t tim4_cnt = 0;   // 1ms timer count
 
 struct Pressure pressure = { .val = 0.0f,
                              .val_last = 0.0f,
@@ -33,8 +34,16 @@ HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
 void
 HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim_pwm)
 {
-  pressure_disp ();
-  tim3_flg = 1;
+  // 100ms sensor + lcd update
+  if (htim_pwm->Instance == pressure.htim_upd->Instance)
+    {
+      pressure_disp ();
+      tim3_flg = 1;
+    }
+  else if (htim_pwm->Instance == pressure.htim_1ms->Instance)
+    {
+      tim4_cnt++;
+    }
 }
 
 void
@@ -44,19 +53,21 @@ pressure_lcd_draw (void)
   // current time
   /*
   ** new timer counts to 1 ms
-   */
+  */
+  /*
   I2C_LCD_Clear (I2C_LCD_1);
   I2C_LCD_SetCursor (I2C_LCD_1, 0, 0);
 
-  uint8_t str[35] = { '\0' };
-  snprintf (buffer, 3, "%.2f", menu->menuitem[current_opt + i]->value);
+  uint8_t buf[35] = { '\0' };
+  snprintf (buf, 35, "%.2f", menu->menuitem[current_opt + i]->value);
   I2C_LCD_WriteString (I2C_LCD_1, "str");
+  */
 }
 
 void
 pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
                TIM_HandleTypeDef *htim_pwm, uint32_t tim_ch,
-               TIM_HandleTypeDef *htim_upd)
+               TIM_HandleTypeDef *htim_upd, TIM_HandleTypeDef *htim_1ms)
 {
 
   pressure.huart = huart;
@@ -64,11 +75,12 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
   pressure.htim_pwm = htim_pwm;
   pressure.tim_ch = tim_ch;
   pressure.htim_upd = htim_upd;
+  pressure.htim_1ms = htim_1ms;
 
   pressure_init ();
 
-  pressure_calib_static (10.0f);
-  // pressure_calib_dynam_sine ();
+  //pressure_calib_static (10.0f);
+  pressure_calib_dynam_sine ();
   // pressure_calib_dynam_ramp ();
 
   pressure_cleanup ();
@@ -247,20 +259,25 @@ pressure_calib_dynam_sine (void)
   // Use above info to gen sine points
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
-    yi[i] = pressure.offs
+    yi[i] = pressure.offset
             + (pressure.ampl * sin (2 * M_PI * pressure.freq * ti[i]));
-  yi[0] = 0;
 
   // Gen array of rates between 2 points
+  /*
   float yr[N];
   for (uint32_t i = 1; i < N; i++)
     yr[i] = (yi[i] - yi[i - 1]) / (ti[i] - ti[i - 1]);
+  */
 
   // Sine loop
+  float current_rate;
   while (!userint_flg)
     {
-      for (uint32_t i = 0; i < N; i++)
-        pressure_ramp (yi[i], yr[i]);
+      for (uint32_t i = 1; i < N; i++)
+      {
+        current_rate = (yi[i] - pressure.val) / (ti[i] - ti[i - 1]);
+        pressure_ramp (yi[i], current_rate);
+      }
     }
 
   userint_flg = 0;

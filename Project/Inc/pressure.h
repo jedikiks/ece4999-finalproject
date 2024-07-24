@@ -30,12 +30,13 @@ struct Pressure
   ADC_HandleTypeDef *hadc;
   TIM_HandleTypeDef *htim_pwm;
   TIM_HandleTypeDef *htim_upd;
+  TIM_HandleTypeDef *htim_1ms;
   uint32_t tim_ch;
 };
 
 void pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
                     TIM_HandleTypeDef *htim_pwm, uint32_t tim_ch,
-                    TIM_HandleTypeDef *htim_upd);
+                    TIM_HandleTypeDef *htim_upd, TIM_HandleTypeDef *htim_1ms);
 void pressure_init (void);
 void pressure_cleanup (void);
 void pressure_disp (void);
