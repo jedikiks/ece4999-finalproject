@@ -19,8 +19,8 @@
 struct Pressure;
 
 void pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
-                    TIM_HandleTypeDef *htim_pwm, uint32_t tim_ch,
-                    TIM_HandleTypeDef *htim_upd);
+                    TIM_HandleTypeDef *htim_pwm, uint32_t comp_pwm_ch,
+                    uint32_t exhst_pwm_ch, TIM_HandleTypeDef *htim_upd);
 void pressure_init (struct Pressure *pressure);
 void pressure_decomp (struct Pressure *pressure);
 void pressure_cleanup (struct Pressure *pressure);
