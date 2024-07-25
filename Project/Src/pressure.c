@@ -166,10 +166,10 @@ pressure_ramp (struct Pressure *pressure, float target, float rate)
 {
   float m_c = 2.78f;
 
-  if (rate > 0)
+  if (rate > 0.0f)
     {
       TIM2->CCR1 = pressure->htim_pwm->Init.Period * (rate / m_c);
-      HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->comp_pwm_ch);
+
       HAL_TIM_Base_Start_IT (pressure->htim_upd);
 
       while (pressure->val < target)
@@ -187,9 +187,8 @@ pressure_ramp (struct Pressure *pressure, float target, float rate)
           tim3_flg = 0;
         }
 
-      HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->comp_pwm_ch);
     }
-  else
+  else if (rate < 0.0f)
     {
       TIM2->CCR2 = pressure->htim_pwm->Init.Period * (fabs (rate) / m_c);
       HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->exhst_pwm_ch);
@@ -210,7 +209,17 @@ pressure_ramp (struct Pressure *pressure, float target, float rate)
           tim3_flg = 0;
         }
 
-      HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->exhst_pwm_ch);
+    }
+  else
+    {
+	  HAL_TIM_Base_Start_IT (pressure->htim_upd);
+      while (!tim3_flg)
+        ;
+
+      // Read in pressure value
+      pressure_sensor_read (pressure);
+
+      tim3_flg = 0;
     }
 
   HAL_TIM_Base_Stop_IT (pressure->htim_upd);
@@ -318,14 +327,53 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
   float current_rate;
   for (long i = 1; i < N; i++)
     {
-      current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
       float b1 = yi[i] + (0.01f * yi[i]);
       float b2 = yi[i] - (0.01f * yi[i]);
 
-      if ((current_rate > 0.0000005f) && (pressure->val < b1))
-        pressure_ramp (pressure, yi[i], current_rate);
-      else if ((current_rate < 0.0000005f) && (pressure->val >= b2))
-        pressure_ramp (pressure, yi[i], current_rate);
+      while (i < N / 4)
+        {
+          current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
+          if (current_rate > 0.0000005f)
+          {
+              HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->comp_pwm_ch);
+              pressure_ramp (pressure, yi[i], current_rate);
+              HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->comp_pwm_ch);
+          }
+          else
+            pressure_ramp (pressure, yi[i], 0.0f);
+
+          i++;
+        }
+
+      while (i < 3 * (N / 4))
+        {
+          current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
+          if (current_rate < 0.0000005f)
+          {
+              HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->exhst_pwm_ch);
+              pressure_ramp (pressure, yi[i], current_rate);
+              HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->exhst_pwm_ch);
+          }
+          else
+            pressure_ramp (pressure, yi[i], 0.0f);
+
+          i++;
+        }
+
+      while (i < N)
+        {
+          current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
+          if (current_rate > 0.0000005f)
+          {
+              HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->comp_pwm_ch);
+              pressure_ramp (pressure, yi[i], current_rate);
+              HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->comp_pwm_ch);
+          }
+          else
+            pressure_ramp (pressure, yi[i], 0.0f);
+
+          i++;
+        }
     }
 }
 
