@@ -186,9 +186,6 @@ pressure_ramp (struct Pressure *pressure, float target, float rate)
 
           tim3_wraps++;
           tim3_flg = 0;
-
-          if (pressure->val > 3)
-            tim3_flg = 0;
         }
     }
   else if (rate < 0.0f)
@@ -323,23 +320,12 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
   for (uint8_t i = 0; i < N; i++)
     yi[i] = offs + (ampl * sin (2 * M_PI * freq * ti[i]));
 
-  // yi[0] = 0;
-
-  /*
-  float yr[N];
-  for (uint8_t i = 1; i < N; i++)
-    yr[i] = (yi[i] - yi[i - 1]) / (ti[i] - ti[i - 1]);
-  */
-
   float current_rate;
   while (1)
     {
 
       for (long i = 1; i < N; i++)
         {
-          float b1 = yi[i] + (0.01f * yi[i]);
-          float b2 = yi[i] - (0.01f * yi[i]);
-
           HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->comp_pwm_ch);
           while (i < N / 4)
             {
