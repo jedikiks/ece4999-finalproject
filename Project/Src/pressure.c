@@ -108,6 +108,7 @@ pressure_sensor_read (struct Pressure *pressure)
   pressure.val = HAL_ADC_GetValue (pressure.hadc)
                   * (PRESSURE_SENSOR_RANGE / ADC_RESOLUTION);
  */
+  pressure_uart_tx(pressure);
 }
 
 void
@@ -147,6 +148,9 @@ pressure_ramp (struct Pressure *pressure, float target, float rate)
           // DEBUG: if pwm is on, inc/dec pressure val
           if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1) == GPIO_PIN_SET)
             pressure->val += m_c / 10;
+
+          // Read in pressure value
+          pressure_sensor_read (pressure);
 
           tim3_wraps++;
           tim3_flg = 0;
