@@ -97,14 +97,14 @@ void
 pressure_init (struct Pressure *pressure)
 {
   HAL_ADC_Start (pressure->hadc);
-  HAL_TIM_Base_DeInit (pressure->htim_pwm);
-  HAL_TIM_Base_DeInit (pressure->htim_upd);
 }
 
 void
 pressure_cleanup (struct Pressure *pressure)
 {
   HAL_ADC_Stop (pressure->hadc);
+  HAL_TIM_Base_DeInit (pressure->htim_pwm);
+  HAL_TIM_Base_DeInit (pressure->htim_upd);
 }
 
 void
