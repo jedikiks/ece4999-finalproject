@@ -8,42 +8,25 @@
 
 uint8_t userint_flg = 0; // user interrupt flag
 uint8_t tim3_flg = 0;    // 100ms timer flag
-uint32_t tim4_cnt = 0;   // 1ms timer count
+uint8_t tim3_wraps = 0;
+uint32_t tim4_cnt = 0; // 1ms timer count
 
-struct Pressure pressure = { .val = 0.0f,
-                             .val_last = 0.0f,
-                             .val_min = 0.0f,
-                             .val_max = 150.0f,
-                             .units = "psi",
-                             .freq = 0.2f,
-                             .ampl = 2.0f,
-                             .offset = 0.0f };
-
-void pressure_ramp (float target, float rate);
+void ramp_init (struct Pressure *pressure, float m_r, float m_c);
+void ramp_deinit (struct Pressure *pressure);
+void pressure_triwave (struct Pressure *pressure);
+void pressure_ramp (struct Pressure *pressure, float target, float rate);
 
 void
 HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
 {
   if (GPIO_Pin == GPIO_PIN_13)
-    {
-      pressure_ramp (0.0f, -2.78);
-      userint_flg = 1;
-    }
+    userint_flg = 1;
 }
 
 void
-HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim_pwm)
+HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim)
 {
-  // 100ms sensor + lcd update
-  if (htim_pwm->Instance == pressure.htim_upd->Instance)
-    {
-      pressure_disp ();
-      tim3_flg = 1;
-    }
-  else if (htim_pwm->Instance == pressure.htim_1ms->Instance)
-    {
-      tim4_cnt++;
-    }
+  tim3_flg = 1;
 }
 
 void
@@ -66,57 +49,59 @@ pressure_lcd_draw (void)
 
 void
 pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
-               TIM_HandleTypeDef *htim_pwm, uint32_t tim_ch,
-               TIM_HandleTypeDef *htim_upd, TIM_HandleTypeDef *htim_1ms)
+               TIM_HandleTypeDef *htim_pwm, uint32_t comp_pwm_ch,
+               uint32_t exhst_pwm_ch, TIM_HandleTypeDef *htim_upd)
 {
+  struct Pressure pressure = { .val = 0.0f,
+                               .val_last = 0.0f,
+                               .val_min = 0.0f,
+                               .val_max = 150.0f,
+                               .units = "psi",
+                               .freq = 0.2f,
+                               .ampl = 10.0f,
+                               .offset = 0.0f,
+                               .huart = huart,
+                               .hadc = hadc,
+                               .htim_pwm = htim_pwm,
+                               .comp_pwm_ch = comp_pwm_ch,
+                               .exhst_pwm_ch = exhst_pwm_ch,
+                               .htim_upd = htim_upd };
 
-  pressure.huart = huart;
-  pressure.hadc = hadc;
-  pressure.htim_pwm = htim_pwm;
-  pressure.tim_ch = tim_ch;
-  pressure.htim_upd = htim_upd;
-  pressure.htim_1ms = htim_1ms;
+  pressure_init (&pressure);
 
-  pressure_init ();
-
-  //pressure_calib_static (10.0f);
-  pressure_calib_dynam_sine ();
+  // pressure_calib_static (10.0f);
+  pressure_calib_dynam_sine (&pressure);
   // pressure_calib_dynam_ramp ();
 
-  pressure_cleanup ();
+  pressure_cleanup (&pressure);
 }
 
 void
-pressure_disp (void)
+pressure_init (struct Pressure *pressure)
 {
-  pressure_sensor_read ();
-  pressure_uart_tx ();
+  HAL_ADC_Start (pressure->hadc);
 }
 
 void
-pressure_init (void)
+pressure_cleanup (struct Pressure *pressure)
 {
-  HAL_ADC_Start (pressure.hadc);
+  pressure_ramp (pressure, 0.0f, -2.78);
+
+  HAL_ADC_Stop (pressure->hadc);
+  HAL_TIM_Base_DeInit (pressure->htim_pwm);
+  HAL_TIM_Base_DeInit (pressure->htim_upd);
 }
 
 void
-pressure_cleanup (void)
-{
-  HAL_ADC_Stop (pressure.hadc);
-  HAL_TIM_Base_DeInit (pressure.htim_pwm);
-  HAL_TIM_Base_DeInit (pressure.htim_upd);
-}
-
-void
-pressure_uart_tx (void)
+pressure_uart_tx (struct Pressure *pressure)
 {
   uint8_t str[35] = { '\0' };
-  sprintf (str, "%.2f\r\n", pressure.val);
-  HAL_UART_Transmit (pressure.huart, str, sizeof (str), 100);
+  sprintf (str, "%.2f\r\n", pressure->val);
+  HAL_UART_Transmit (pressure->huart, str, sizeof (str), 100);
 }
 
 void
-pressure_sensor_read (void)
+pressure_sensor_read (struct Pressure *pressure)
 {
   /*
   HAL_ADC_PollForConversion (pressure.hadc, HAL_MAX_DELAY);
@@ -126,33 +111,32 @@ pressure_sensor_read (void)
 }
 
 void
-pressure_calib_static (float target)
+pressure_calib_static (struct Pressure *pressure, float target)
 {
-  HAL_TIM_Base_Start_IT (pressure.htim_upd);
-  // HAL_GPIO_WritePin (GPIOA, PRESSURE_COMPRESSOR_PIN, GPIO_PIN_SET);
+  HAL_TIM_Base_Start_IT (pressure->htim_upd);
 
-  pressure_ramp (target, 2.78f);
+  pressure_ramp (pressure, target, 2.78f);
 
   // Display results until user interrupt
   while (!userint_flg)
     ;
 
   userint_flg = 0;
-  HAL_TIM_Base_Stop_IT (pressure.htim_upd);
+  HAL_TIM_Base_Stop_IT (pressure->htim_upd);
 }
 
 void
-pressure_ramp (float target, float rate)
+pressure_ramp (struct Pressure *pressure, float target, float rate)
 {
   float m_c = 2.78f;
+  tim3_wraps = 0;
 
-  if (rate > 0)
+  if (rate > 0.0f)
     {
-      TIM2->CCR1 = pressure.htim_pwm->Init.Period * (rate / m_c);
-      HAL_TIM_PWM_Start (pressure.htim_pwm, pressure.tim_ch);
-      HAL_TIM_Base_Start_IT (pressure.htim_upd);
+      TIM2->CCR1 = pressure->htim_pwm->Init.Period * (rate / m_c);
+      HAL_TIM_Base_Start_IT (pressure->htim_upd);
 
-      while (pressure.val < target)
+      while (tim3_wraps < 5)
         {
           if (userint_flg)
             break;
@@ -162,123 +146,202 @@ pressure_ramp (float target, float rate)
 
           // DEBUG: if pwm is on, inc/dec pressure val
           if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1) == GPIO_PIN_SET)
-            pressure.val += m_c / 10;
+            pressure->val += m_c / 10;
 
+          tim3_wraps++;
+          tim3_flg = 0;
+        }
+    }
+  else if (rate < 0.0f)
+    {
+      TIM2->CCR2 = pressure->htim_pwm->Init.Period * (fabs (rate) / m_c);
+      HAL_TIM_Base_Start_IT (pressure->htim_upd);
+
+      while (tim3_wraps < 5)
+        {
+          if (userint_flg)
+            break;
+
+          while (!tim3_flg)
+            ;
+
+          // DEBUG: if pwm is on, inc/dec pressure val
+          if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_4) == GPIO_PIN_SET)
+            pressure->val -= m_c / 10;
+
+          // Read in pressure value
+          pressure_sensor_read (pressure);
+
+          tim3_wraps++;
           tim3_flg = 0;
         }
     }
   else
     {
-      TIM2->CCR1 = pressure.htim_pwm->Init.Period * (fabs (rate) / m_c);
-      HAL_TIM_PWM_Start (pressure.htim_pwm, pressure.tim_ch);
-      HAL_TIM_Base_Start_IT (pressure.htim_upd);
+      HAL_TIM_Base_Start_IT (pressure->htim_upd);
 
-      while (pressure.val > target)
+      while (tim3_wraps < 5)
         {
-          if (userint_flg)
-            break;
-
           while (!tim3_flg)
             ;
 
-          // DEBUG: if pwm is on, inc/dec pressure val
-          if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1) == GPIO_PIN_SET)
-            pressure.val -= m_c / 10;
+          // Read in pressure value
+          pressure_sensor_read (pressure);
 
+          tim3_wraps++;
           tim3_flg = 0;
         }
     }
 
-  HAL_TIM_Base_Stop_IT (pressure.htim_upd);
-  HAL_TIM_PWM_Stop (pressure.htim_pwm, pressure.tim_ch);
+  HAL_TIM_Base_Stop_IT (pressure->htim_upd);
 }
 
-void
-pressure_calib_dynam_step (void)
+void pressure_calib_dynam_step (struct Pressure *pressure, float target)
 {
   // Ramp to initial offset
-  pressure_ramp (pressure.offset, 2.78f);
+  pressure_ramp (pressure, pressure->offset, 2.78f);
 
   while (!userint_flg)
     {
       // Ramp to +ampl
-      pressure_ramp (pressure.ampl, 2.78f);
+      pressure_ramp (pressure, pressure->ampl, 2.78f);
 
       // Delay
-      HAL_TIM_Base_Start_IT (pressure.htim_upd);
-      for (uint32_t i = 0; i < (((1 / pressure.freq) - (2 * 2.78f)) / 2) / 100;
+      HAL_TIM_Base_Start_IT (pressure->htim_upd);
+      for (uint32_t i = 0; i < (((1 / pressure->freq) - (2 * 2.78f)) / 2) / 100;
            i++)
         {
           while (!tim3_flg)
             ;
         }
-      HAL_TIM_Base_Stop_IT (pressure.htim_upd);
+      HAL_TIM_Base_Stop_IT (pressure->htim_upd);
 
       // Ramp to -ampl
-      pressure_ramp (pressure.ampl, -2.78f);
+      pressure_ramp (pressure, pressure->ampl, -2.78f);
     }
 
   userint_flg = 0;
 }
 
 void
-pressure_calib_dynam_ramp (void)
+pressure_calib_dynam_ramp (struct Pressure *pressure)
 {
   // Ramp to initial offset
-  pressure_ramp (pressure.offset, 2.78f);
+  pressure_ramp (pressure, pressure->offset, 2.78f);
 
   // Ramp from ampl until user int
   while (!userint_flg)
     {
-      pressure_ramp (pressure.ampl, (1 / pressure.freq) / 2);
-      pressure_ramp (pressure.ampl, -1 * ((1 / pressure.freq) / 2));
+      pressure_ramp (pressure, pressure->ampl, (1 / pressure->freq) / 2);
+      pressure_ramp (pressure, pressure->ampl, -1 * ((1 / pressure->freq) / 2));
     }
 
   userint_flg = 0;
 }
 
 void
-pressure_calib_dynam_sine (void)
+pressure_calib_dynam_sine (struct Pressure *pressure)
 {
-  // Ramp to initial offset
-  pressure_ramp (pressure.offset, 2.78f);
-
-  // Get number of samples. Based off the input freq x switching speed
-  // max N = 50?
-  // Change rate of compressor from 100ms to 500ms
-  float sw = 0.1f; // switching in sec
-  uint32_t N = round (1 / (pressure.freq * sw));
-  if (N > 50)
-    N = 50;
+  float ampl = 3.0f;
+  float offs = 0.0f;
+  float freq = 0.05f;
+  float sw = 0.5f; // switching in sec
+  uint8_t N = 1 / (freq * sw);
 
   // Get linspaced time array
   float ti[N];
-  for (uint32_t i = 0; i < N; i++)
-    ti[i] = i + (1 / pressure.freq);
+  for (uint8_t i = 0; i < N; i++)
+    ti[i] = (i * (1 / freq)) / N;
 
   // Use above info to gen sine points
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
-    yi[i] = pressure.offset
-            + (pressure.ampl * sin (2 * M_PI * pressure.freq * ti[i]));
+    yi[i] = offs + (ampl * sin (2 * M_PI * freq * ti[i]));
 
-  // Gen array of rates between 2 points
-  /*
-  float yr[N];
-  for (uint32_t i = 1; i < N; i++)
-    yr[i] = (yi[i] - yi[i - 1]) / (ti[i] - ti[i - 1]);
-  */
-
-  // Sine loop
   float current_rate;
-  while (!userint_flg)
+  while (1)
     {
-      for (uint32_t i = 1; i < N; i++)
-      {
-        current_rate = (yi[i] - pressure.val) / (ti[i] - ti[i - 1]);
-        pressure_ramp (yi[i], current_rate);
-      }
-    }
 
-  userint_flg = 0;
+      for (long i = 1; i < N; i++)
+        {
+          HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->comp_pwm_ch);
+          while (i < N / 4)
+            {
+              current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
+              if (current_rate > 0.0000005f)
+                {
+                  pressure_ramp (pressure, yi[i], current_rate);
+                }
+              else
+                pressure_ramp (pressure, yi[i], 0.0f);
+
+              i++;
+            }
+          HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->comp_pwm_ch);
+
+          HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->exhst_pwm_ch);
+          while (i < 3 * (N / 4))
+            {
+              current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
+              if (current_rate < 0.0000005f)
+                {
+                  pressure_ramp (pressure, yi[i], current_rate);
+                }
+              else
+                pressure_ramp (pressure, yi[i], 0.0f);
+
+              i++;
+            }
+          HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->exhst_pwm_ch);
+
+          HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->comp_pwm_ch);
+          while (i < N)
+            {
+              current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
+              if (current_rate > 0.0000005f)
+                {
+                  pressure_ramp (pressure, yi[i], current_rate);
+                }
+              else
+                pressure_ramp (pressure, yi[i], 0.0f);
+
+              i++;
+            }
+        }
+    }
 }
+
+//void
+//pressure_triwave (struct Pressure *pressure)
+//{
+//  float m_r = pressure->freq * pressure->ampl;
+//  float m_c = 2.78f;
+//
+//  ramp_init (pressure, m_r, m_c);
+//
+//  while (1)
+//    {
+//      tim3_wraps = 0;
+//      pressure_calib_dynam_ramp (pressure, 10.0f);
+//      tim3_wraps = 0;
+//      pressure_calib_dynam_ramp (pressure, 0.0f);
+//    }
+//}
+//
+//void
+//ramp_init (struct Pressure *pressure, float m_r, float m_c)
+//{
+//  TIM2->CCR1 = pressure->htim_pwm->Init.Period * (m_r / m_c);
+//  HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->comp_pwm_ch);
+//  HAL_TIM_Base_Start_IT (pressure->htim_upd);
+//
+//  tim3_wraps = 0;
+//}
+//
+//void
+//ramp_deinit (struct Pressure *pressure)
+//{
+//  HAL_TIM_Base_Stop (pressure->htim_upd);
+//  HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->comp_pwm_ch);
+//>>>>>>> feat/sinewave
+//}
