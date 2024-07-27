@@ -71,8 +71,8 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
   pressure_init (&pressure);
 
   // pressure_calib_static (&pressure, 10.0f);
-  // pressure_calib_dynam_sine (&pressure);
-  pressure_calib_dynam_step (&pressure);
+   pressure_calib_dynam_sine (&pressure);
+  //pressure_calib_dynam_step (&pressure);
 
   pressure_cleanup (&pressure);
 }
@@ -368,9 +368,9 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
 void
 pressure_calib_dynam_sine (struct Pressure *pressure)
 {
-  float ampl = 4.0f;
+  float ampl = 2.0f;
   float offs = 0.0f;
-  float freq = 0.1f;
+  float freq = 0.05f;
   float sw = 0.5f; // switching in sec
   uint8_t N = 1 / (freq * sw);
 
@@ -382,56 +382,48 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
   // Use above info to gen sine points
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
-    yi[i]
-        = (ampl / 2) * pow (-1.0f, floor ((2 * (ti[i] - offs)) / (1 / freq)));
-  // yi[i] = offs + (ampl * sin (2 * M_PI * freq * ti[i]));
+   yi[i] = offs + ((ampl / 2) * sin (2 * M_PI * freq * ti[i]));
 
   float current_rate;
   while (1)
     {
-
       for (long i = 1; i < N; i++)
         {
-          HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->comp_pwm_ch);
           while (i < N / 4)
             {
               current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
               if (current_rate > 0.0000005f)
                 {
-                  pressure_ramp (pressure, yi[i], current_rate);
+                  pressure_ramp_v2 (pressure, yi[i], current_rate);
                 }
               else
-                pressure_ramp (pressure, yi[i], 0.0f);
+                pressure_ramp_v2 (pressure, yi[i], 0.0f);
 
               i++;
             }
-          HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->comp_pwm_ch);
 
-          HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->exhst_pwm_ch);
           while (i < 3 * (N / 4))
             {
               current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
               if (current_rate < 0.0000005f)
                 {
-                  pressure_ramp (pressure, yi[i], current_rate);
+                  pressure_ramp_v2 (pressure, yi[i], current_rate);
                 }
               else
-                pressure_ramp (pressure, yi[i], 0.0f);
+                pressure_ramp_v2 (pressure, yi[i], 0.0f);
 
               i++;
             }
-          HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->exhst_pwm_ch);
 
-          HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->comp_pwm_ch);
           while (i < N)
             {
               current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
               if (current_rate > 0.0000005f)
                 {
-                  pressure_ramp (pressure, yi[i], current_rate);
+                  pressure_ramp_v2 (pressure, yi[i], current_rate);
                 }
               else
-                pressure_ramp (pressure, yi[i], 0.0f);
+                pressure_ramp_v2 (pressure, yi[i], 0.0f);
 
               i++;
             }
