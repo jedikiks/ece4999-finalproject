@@ -6,8 +6,9 @@
 #include <math.h>
 #include <stdint.h>
 
-uint8_t userint_flg = 0; // user interrupt flag
-uint8_t tim3_flg = 0;    // 100ms timer flag
+uint8_t userint_flg = 0;     // user interrupt flag
+uint8_t userint_flg_lck = 0; // user interrupt lck
+uint8_t tim3_flg = 0;        // 100ms timer flag
 uint8_t tim3_wraps = 0;
 uint32_t tim4_cnt = 0; // 1ms timer count
 
@@ -20,8 +21,11 @@ void pressure_ramp_v2 (struct Pressure *pressure, float target, float rate);
 void
 HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
 {
-  if (GPIO_Pin == GPIO_PIN_13)
-    userint_flg = 1;
+  if (GPIO_Pin == GPIO_PIN_13 && !userint_flg_lck)
+    {
+      userint_flg = 1;
+      userint_flg_lck = 1;
+    }
 }
 
 void
@@ -70,9 +74,9 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
 
   pressure_init (&pressure);
 
-  // pressure_calib_static (&pressure, 10.0f);
-   pressure_calib_dynam_sine (&pressure);
-  //pressure_calib_dynam_step (&pressure);
+  pressure_calib_static (&pressure, 10.0f);
+  // pressure_calib_dynam_sine (&pressure);
+  // pressure_calib_dynam_step (&pressure);
 
   pressure_cleanup (&pressure);
 }
@@ -86,7 +90,10 @@ pressure_init (struct Pressure *pressure)
 void
 pressure_cleanup (struct Pressure *pressure)
 {
-  pressure_ramp (pressure, 0.0f, -2.78);
+  userint_flg = 0;
+
+  while (pressure->val >= 0.0000005f)
+    pressure_ramp_v2 (pressure, 0.0f, -2.78);
 
   HAL_ADC_Stop (pressure->hadc);
   HAL_TIM_Base_DeInit (pressure->htim_pwm);
@@ -115,17 +122,28 @@ pressure_sensor_read (struct Pressure *pressure)
 void
 pressure_calib_static (struct Pressure *pressure, float target)
 {
-  HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->comp_pwm_ch);
   while (pressure->val < target)
-    pressure_ramp (pressure, target, 2.78f);
-  HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->comp_pwm_ch);
+    {
+      if (userint_flg)
+        break;
 
-  HAL_TIM_Base_Start_IT (pressure->htim_upd);
+      pressure_ramp_v2 (pressure, target, 2.78f);
+    }
+
   // Display results until user interrupt
-  while (userint_flg)
-    ;
+  HAL_TIM_Base_Start_IT (pressure->htim_upd);
 
-  userint_flg = 0;
+  while (!userint_flg)
+    {
+      while (!tim3_flg)
+        ;
+
+      // Read in pressure value
+      pressure_sensor_read (pressure);
+
+      tim3_flg = 0;
+    }
+
   HAL_TIM_Base_Stop_IT (pressure->htim_upd);
 }
 
@@ -201,6 +219,9 @@ pressure_ramp_v2 (struct Pressure *pressure, float target, float rate)
 
       while (tim3_wraps < 5)
         {
+          if (userint_flg)
+            break;
+
           while (!tim3_flg)
             ;
 
@@ -382,7 +403,7 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
   // Use above info to gen sine points
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
-   yi[i] = offs + ((ampl / 2) * sin (2 * M_PI * freq * ti[i]));
+    yi[i] = offs + ((ampl / 2) * sin (2 * M_PI * freq * ti[i]));
 
   float current_rate;
   while (1)
