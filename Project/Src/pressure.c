@@ -206,7 +206,7 @@ void
 pressure_calib_dynam_step (struct Pressure *pressure)
 {
   float ampl = 2.0f;
-  float offs = 0.0f;
+  float offs = 4.0f;
   float freq = 0.1f;
   float sw = 0.5f; // switching in sec
   uint8_t N = 1 / (freq * sw);
@@ -219,7 +219,13 @@ pressure_calib_dynam_step (struct Pressure *pressure)
   // Use above info to gen sine points
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
-    yi[i] = (ampl / 2) * pow(-1.0f, floor ((2 * (ti[i] - offs)) / (1 / freq)));
+    yi[i] = offs + ((ampl / 2) * pow(-1.0f, floor ((2 * ti[i]) / (1 / freq))));
+
+  // Ramp to initial offset
+  HAL_TIM_PWM_Start (pressure->htim_pwm, pressure->comp_pwm_ch);
+  while (pressure->val < offs)
+    pressure_ramp (pressure, pressure->offset, 2.78f);
+  HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->comp_pwm_ch);
 
   float current_rate;
   while (1)
