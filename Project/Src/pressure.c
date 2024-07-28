@@ -75,9 +75,9 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
   pressure_init (&pressure);
 
   // pressure_calib_static (&pressure, 10.0f);
-  // pressure_calib_dynam_sine (&pressure);
+   pressure_calib_dynam_sine (&pressure);
   // pressure_calib_dynam_step (&pressure);
-   pressure_calib_dynam_ramp (&pressure);
+  // pressure_calib_dynam_ramp (&pressure);
 
   pressure_cleanup (&pressure);
 }
@@ -147,11 +147,22 @@ pressure_calib_static (struct Pressure *pressure, float target)
 
   HAL_TIM_Base_Stop_IT (pressure->htim_upd);
 }
+/*
+      float b1 = yi[i] + (0.01f * yi[i]);
+      float b2 = yi[i] - (0.01f * yi[i]);
+
+      if ((current_rate > 0.0000005f) && (pressure->val < b1))
+        pressure_ramp (pressure, yi[i], current_rate);
+      else if ((current_rate < 0.0000005f) && (pressure->val >= b2))
+        pressure_ramp (pressure, yi[i], current_rate);
+*/
 
 void
 pressure_ramp_v2 (struct Pressure *pressure, float target, float rate)
 {
   float m_c = 2.78f;
+  //float b_mx = target + (0.2f * target);
+  //float b_mn = target - (0.2f * target);
   tim3_wraps = 0;
 
   if (rate > 0.0f)
@@ -165,6 +176,7 @@ pressure_ramp_v2 (struct Pressure *pressure, float target, float rate)
           if (userint_flg)
             break;
 
+          //if ((pressure->val <= b_mx) && (pressure->val >= b_mn))
           if (pressure->val >= target)
             HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->comp_pwm_ch);
 
@@ -195,6 +207,7 @@ pressure_ramp_v2 (struct Pressure *pressure, float target, float rate)
           if (userint_flg)
             break;
 
+          //if ((pressure->val <= b_mx) && (pressure->val >= b_mn))
           if (pressure->val <= target)
             HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->exhst_pwm_ch);
 
@@ -391,7 +404,7 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
   // Use above info to gen sine points
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
-    yi[i] = offs + ((((4 * ampl) / per) * fabs (fmod((fmod((ti[i] - (per / 4)), per) + per), per) - (per / 2))) - ampl);
+    yi[i] = ((((4 * ampl) / per) * fabs (fmod((fmod((ti[i] - (per / 4)), per) + per), per) - (per / 2))) - ampl);
     //yi[i] = ((2 * ampl) / M_PI) * asin (sin (((2 * M_PI) / per) * ti[i]));
 
   // Ramp to initial offset
@@ -410,10 +423,10 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
               current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
               if (current_rate > 0.0000005f)
                 {
-                  pressure_ramp (pressure, yi[i], current_rate);
+                  pressure_ramp_v2 (pressure, yi[i], current_rate);
                 }
               else
-                pressure_ramp (pressure, yi[i], 0.0f);
+                pressure_ramp_v2 (pressure, yi[i], 0.0f);
 
               i++;
             }
@@ -423,10 +436,10 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
               current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
               if (current_rate < 0.0000005f)
                 {
-                  pressure_ramp (pressure, yi[i], current_rate);
+                  pressure_ramp_v2 (pressure, yi[i], current_rate);
                 }
               else
-                pressure_ramp (pressure, yi[i], 0.0f);
+                pressure_ramp_v2 (pressure, yi[i], 0.0f);
 
               i++;
             }
@@ -439,13 +452,13 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
               current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
               if (current_rate > 0.0000005f)
                 {
-                  pressure_ramp (pressure, yi[i], current_rate);
+                  pressure_ramp_v2 (pressure, yi[i], current_rate);
                 }
               else
-                pressure_ramp (pressure, yi[i], 0.0f);
+                pressure_ramp_v2 (pressure, yi[i], 0.0f);
 
               if (i == 0)
-                i = 0;
+                break;
 
               i++;
             }
@@ -458,7 +471,7 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
 void
 pressure_calib_dynam_sine (struct Pressure *pressure)
 {
-  float ampl = 2.0f;
+  float ampl = 3.0f;
   float offs = 0.0f;
   float freq = 0.05f;
   float sw = 0.5f; // switching in sec
@@ -484,10 +497,10 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
               current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
               if (current_rate > 0.0000005f)
                 {
-                  pressure_ramp (pressure, yi[i], current_rate);
+                  pressure_ramp_v2 (pressure, yi[i], current_rate);
                 }
               else
-                pressure_ramp (pressure, yi[i], 0.0f);
+                pressure_ramp_v2 (pressure, yi[i], 0.0f);
 
               i++;
             }
@@ -497,10 +510,10 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
               current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
               if (current_rate < 0.0000005f)
                 {
-                  pressure_ramp (pressure, yi[i], current_rate);
+                  pressure_ramp_v2 (pressure, yi[i], current_rate);
                 }
               else
-                pressure_ramp (pressure, yi[i], 0.0f);
+                pressure_ramp_v2 (pressure, yi[i], 0.0f);
 
               i++;
             }
@@ -510,10 +523,10 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
               current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
               if (current_rate > 0.0000005f)
                 {
-                  pressure_ramp (pressure, yi[i], current_rate);
+                  pressure_ramp_v2 (pressure, yi[i], current_rate);
                 }
               else
-                pressure_ramp (pressure, yi[i], 0.0f);
+                pressure_ramp_v2 (pressure, yi[i], 0.0f);
 
               i++;
             }
