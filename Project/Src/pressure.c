@@ -17,6 +17,7 @@ void ramp_deinit (struct Pressure *pressure);
 void pressure_triwave (struct Pressure *pressure);
 void pressure_ramp (struct Pressure *pressure, float target, float rate);
 void pressure_ramp_v2 (struct Pressure *pressure, float target, float rate);
+void pressure_ramp_v3 (struct Pressure *pressure, uint8_t dev, float target);
 
 void
 HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
@@ -74,12 +75,121 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
 
   pressure_init (&pressure);
 
-  // pressure_calib_static (&pressure, 10.0f);
-   pressure_calib_dynam_sine (&pressure);
+  pressure_calib_static (&pressure, 10.0f);
+  // pressure_calib_dynam_sine (&pressure);
   // pressure_calib_dynam_step (&pressure);
   // pressure_calib_dynam_ramp (&pressure);
 
   pressure_cleanup (&pressure);
+}
+
+void
+pressure_ramp_v3 (struct Pressure *pressure, uint8_t dev, float target)
+{
+  if ((target < 0.0000005f) && (target > 0.0f))
+    target = 0;
+
+  float b_mx = target + (0.1f * target);
+  float b_mn = target - (0.1f * target);
+
+  if ((fabs (pressure->val) <= fabs (b_mx))
+      && (fabs (pressure->val) >= fabs (b_mn)))
+    dev = 0;
+
+  if (pressure->val == target)
+    dev = 0;
+
+  tim3_wraps = 0;
+
+  switch (dev)
+    {
+    case 1:
+      // if (target == 0)
+      //   {
+      //     dev = 0;
+      //     break;
+      //   }
+
+      HAL_TIM_Base_Start_IT (pressure->htim_upd);
+      HAL_GPIO_WritePin (GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+
+      while (tim3_wraps < 5)
+        {
+          if (userint_flg)
+            break;
+
+          while (!tim3_flg)
+            ;
+
+          if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1) == GPIO_PIN_SET)
+            pressure->val += 2.78 / 10;
+
+          // Read in pressure value
+          pressure_sensor_read (pressure);
+
+          // if (pressure->val >= target)
+          if ((fabs (pressure->val) <= fabs (b_mx))
+              && (fabs (pressure->val) >= fabs (b_mn)))
+            HAL_GPIO_WritePin (GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+
+          tim3_wraps++;
+          tim3_flg = 0;
+        }
+
+      HAL_GPIO_WritePin (GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+      break;
+
+    case 2:
+
+      HAL_TIM_Base_Start_IT (pressure->htim_upd);
+      HAL_GPIO_WritePin (GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
+
+      while (tim3_wraps < 5)
+        {
+          if (userint_flg)
+            break;
+
+          while (!tim3_flg)
+            ;
+
+          if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_4) == GPIO_PIN_SET)
+            pressure->val -= 2.78 / 10;
+
+          if ((pressure->val < 0.0000005f) && (pressure->val > -0.0000005f))
+            pressure->val = 0;
+
+          // Read in pressure value
+          pressure_sensor_read (pressure);
+
+          // if (pressure->val <= target)
+          if ((fabs (pressure->val) <= fabs (b_mx))
+              && (fabs (pressure->val) >= fabs (b_mn)))
+            HAL_GPIO_WritePin (GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
+
+          tim3_wraps++;
+          tim3_flg = 0;
+        }
+      HAL_GPIO_WritePin (GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
+      break;
+
+    default:
+      HAL_TIM_Base_Start_IT (pressure->htim_upd);
+
+      while (tim3_wraps < 5)
+        {
+          while (!tim3_flg)
+            ;
+
+          // Read in pressure value
+          pressure_sensor_read (pressure);
+
+          tim3_wraps++;
+          tim3_flg = 0;
+        }
+      break;
+    }
+
+  HAL_TIM_Base_Stop_IT (pressure->htim_upd);
 }
 
 void
@@ -123,12 +233,15 @@ pressure_sensor_read (struct Pressure *pressure)
 void
 pressure_calib_static (struct Pressure *pressure, float target)
 {
-  while (pressure->val < target)
+  float b_mx = target + (0.1f * target);
+  float b_mn = target - (0.1f * target);
+
+  while (!((pressure->val <= b_mx) && (pressure->val >= b_mn)))
     {
       if (userint_flg)
         break;
 
-      pressure_ramp_v2 (pressure, target, 2.78f);
+      pressure_ramp_v3 (pressure, 1, target);
     }
 
   // Display results until user interrupt
@@ -161,8 +274,8 @@ void
 pressure_ramp_v2 (struct Pressure *pressure, float target, float rate)
 {
   float m_c = 2.78f;
-  //float b_mx = target + (0.2f * target);
-  //float b_mn = target - (0.2f * target);
+  // float b_mx = target + (0.2f * target);
+  // float b_mn = target - (0.2f * target);
   tim3_wraps = 0;
 
   if (rate > 0.0f)
@@ -176,7 +289,7 @@ pressure_ramp_v2 (struct Pressure *pressure, float target, float rate)
           if (userint_flg)
             break;
 
-          //if ((pressure->val <= b_mx) && (pressure->val >= b_mn))
+          // if ((pressure->val <= b_mx) && (pressure->val >= b_mn))
           if (pressure->val >= target)
             HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->comp_pwm_ch);
 
@@ -207,7 +320,7 @@ pressure_ramp_v2 (struct Pressure *pressure, float target, float rate)
           if (userint_flg)
             break;
 
-          //if ((pressure->val <= b_mx) && (pressure->val >= b_mn))
+          // if ((pressure->val <= b_mx) && (pressure->val >= b_mn))
           if (pressure->val <= target)
             HAL_TIM_PWM_Stop (pressure->htim_pwm, pressure->exhst_pwm_ch);
 
@@ -349,37 +462,26 @@ pressure_calib_dynam_step (struct Pressure *pressure)
         = offs + ((ampl / 2) * pow (-1.0f, floor ((2 * ti[i]) / (1 / freq))));
 
   // Ramp to initial offset
-  while (pressure->val < offs)
-    pressure_ramp_v2 (pressure, offs, 2.78f);
+  {
+    float b_mx = offs + (0.1f * offs);
+    float b_mn = offs - (0.1f * offs);
+    while (!((pressure->val <= b_mx) && (pressure->val >= b_mn)))
+      pressure_ramp_v3 (pressure, 1, offs);
+  }
 
-  float current_rate;
   while (1)
     {
-      for (long i = 1; i < N; i++)
+      for (long i = 0; i < N; i++)
         {
           while (i < N / 2)
             {
-              current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
-              if (current_rate > 0.0000005f)
-                {
-                  pressure_ramp_v2 (pressure, yi[i], current_rate);
-                }
-              else
-                pressure_ramp_v2 (pressure, yi[i], 0.0f);
-
+              pressure_ramp_v3 (pressure, 1, yi[i]);
               i++;
             }
 
           while (i < N)
             {
-              current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
-              if (current_rate < 0.0000005f)
-                {
-                  pressure_ramp_v2 (pressure, yi[i], current_rate);
-                }
-              else
-                pressure_ramp_v2 (pressure, yi[i], 0.0f);
-
+              pressure_ramp_v3 (pressure, 2, yi[i]);
               i++;
             }
         }
@@ -404,67 +506,34 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
   // Use above info to gen sine points
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
-    yi[i] = ((((4 * ampl) / per) * fabs (fmod((fmod((ti[i] - (per / 4)), per) + per), per) - (per / 2))) - ampl);
-    //yi[i] = ((2 * ampl) / M_PI) * asin (sin (((2 * M_PI) / per) * ti[i]));
+    yi[i] = ((((4 * ampl) / per)
+              * fabs (fmod ((fmod ((ti[i] - (per / 4)), per) + per), per)
+                      - (per / 2)))
+             - ampl);
 
-  // Ramp to initial offset
-  /*
-  while (pressure->val < offs)
-    pressure_ramp (pressure, offs, 2.78f);
-    */
-
-  float current_rate;
   while (1)
     {
-      for (long i = 1; i < N; i++)
+      for (long i = 0; i < N; i++)
         {
           while (i <= N / 4)
             {
-              current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
-              if (current_rate > 0.0000005f)
-                {
-                  pressure_ramp_v2 (pressure, yi[i], current_rate);
-                }
-              else
-                pressure_ramp_v2 (pressure, yi[i], 0.0f);
-
+              pressure_ramp_v3 (pressure, 1, yi[i]);
               i++;
             }
 
           while (i <= 3 * (N / 4))
             {
-              current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
-              if (current_rate < 0.0000005f)
-                {
-                  pressure_ramp_v2 (pressure, yi[i], current_rate);
-                }
-              else
-                pressure_ramp_v2 (pressure, yi[i], 0.0f);
-
+              pressure_ramp_v3 (pressure, 2, yi[i]);
               i++;
             }
 
           while (i <= N)
             {
-              if (i == N)
-                i = 0;
-
-              current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
-              if (current_rate > 0.0000005f)
-                {
-                  pressure_ramp_v2 (pressure, yi[i], current_rate);
-                }
-              else
-                pressure_ramp_v2 (pressure, yi[i], 0.0f);
-
-              if (i == 0)
-                break;
-
+              pressure_ramp_v3 (pressure, 1, yi[i]);
               i++;
             }
         }
     }
-
 }
 
 // FIXME: you dont stop the pwm after the 4th section
@@ -494,40 +563,19 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
         {
           while (i < N / 4)
             {
-              current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
-              if (current_rate > 0.0000005f)
-                {
-                  pressure_ramp_v2 (pressure, yi[i], current_rate);
-                }
-              else
-                pressure_ramp_v2 (pressure, yi[i], 0.0f);
-
+              pressure_ramp_v3 (pressure, 1, yi[i]);
               i++;
             }
 
           while (i < 3 * (N / 4))
             {
-              current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
-              if (current_rate < 0.0000005f)
-                {
-                  pressure_ramp_v2 (pressure, yi[i], current_rate);
-                }
-              else
-                pressure_ramp_v2 (pressure, yi[i], 0.0f);
-
+              pressure_ramp_v3 (pressure, 2, yi[i]);
               i++;
             }
 
           while (i < N)
             {
-              current_rate = (yi[i] - pressure->val) / (ti[i] - ti[i - 1]);
-              if (current_rate > 0.0000005f)
-                {
-                  pressure_ramp_v2 (pressure, yi[i], current_rate);
-                }
-              else
-                pressure_ramp_v2 (pressure, yi[i], 0.0f);
-
+              pressure_ramp_v3 (pressure, 1, yi[i]);
               i++;
             }
         }
