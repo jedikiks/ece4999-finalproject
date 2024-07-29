@@ -1,4 +1,5 @@
 #include "pressure.h"
+#include "lcd.h"
 #include "stm32f411xe.h"
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_gpio.h"
@@ -213,6 +214,7 @@ void
 pressure_init (struct Pressure *pressure)
 {
   HAL_ADC_Start (pressure->hadc);
+  I2C_LCD_Init (I2C_LCD_1);
 }
 
 void
