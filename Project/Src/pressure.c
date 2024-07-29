@@ -1,9 +1,10 @@
 #include "pressure.h"
-#include "lcd.h"
+#include "I2C_LCD.h"
 #include "stm32f411xe.h"
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_gpio.h"
 #include "stm32f4xx_hal_tim.h"
+
 #include <math.h>
 #include <stdint.h>
 
@@ -11,6 +12,7 @@ uint8_t userint_flg = 0;     // user interrupt flag
 uint8_t userint_flg_lck = 0; // user interrupt lck
 uint8_t tim3_flg = 0;        // 100ms timer flag
 uint8_t tim3_wraps = 0;
+float tim3_elapsed = 0.0f;
 uint32_t tim4_cnt = 0; // 1ms timer count
 
 void ramp_init (struct Pressure *pressure, float m_r, float m_c);
@@ -19,7 +21,7 @@ void pressure_triwave (struct Pressure *pressure);
 void pressure_ramp (struct Pressure *pressure, float target, float rate);
 void pressure_ramp_v2 (struct Pressure *pressure, float target, float rate);
 uint8_t pressure_ramp_v3 (struct Pressure *pressure, uint8_t dev, float target,
-                       float perr);
+                          float perr);
 
 void
 HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
@@ -35,10 +37,11 @@ void
 HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim)
 {
   tim3_flg = 1;
+  tim3_elapsed += 0.1f;
 }
 
 void
-pressure_lcd_draw (void)
+pressure_lcd_draw (struct Pressure *pressure, float target)
 {
   // pressure +/- uncert
   // current time
@@ -46,6 +49,10 @@ pressure_lcd_draw (void)
   ** new timer counts to 1 ms
   */
   /*
+  I2C_LCD_Clear(I2C_LCD_1);
+  I2C_LCD_SetCursor(I2C_LCD_1, 3, 1);
+  I2C_LCD_WriteString(I2C_LCD_1, "Connect Device");
+
   I2C_LCD_Clear (I2C_LCD_1);
   I2C_LCD_SetCursor (I2C_LCD_1, 0, 0);
 
@@ -53,6 +60,33 @@ pressure_lcd_draw (void)
   snprintf (buf, 35, "%.2f", menu->menuitem[current_opt + i]->value);
   I2C_LCD_WriteString (I2C_LCD_1, "str");
   */
+
+  I2C_LCD_Clear (I2C_LCD_1);
+
+  // Pressure value
+  {
+    I2C_LCD_SetCursor (I2C_LCD_1, 0, 0);
+    uint8_t buf[20] = { '\0' };
+    snprintf (buf, 20, "Current: %.3f psi", pressure->val);
+    I2C_LCD_WriteString (I2C_LCD_1, buf);
+  }
+
+  // Deviation from target
+  {
+    I2C_LCD_SetCursor (I2C_LCD_1, 0, 1);
+    uint8_t buf[20] = { '\0' };
+    snprintf (buf, 20, "Deviation: %.3f%%",
+              ((pressure->val - target) / target) * 100);
+    I2C_LCD_WriteString (I2C_LCD_1, buf);
+  }
+
+  // Time
+  {
+    I2C_LCD_SetCursor (I2C_LCD_1, 0, 2);
+    uint8_t buf[20] = { '\0' };
+    snprintf (buf, 20, "Time: %.1f sec", tim3_elapsed);
+    I2C_LCD_WriteString (I2C_LCD_1, buf);
+  }
 }
 
 void
@@ -78,9 +112,9 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
   pressure_init (&pressure);
 
   // pressure_calib_static (&pressure, 10.0f);
-  //pressure_calib_dynam_sine (&pressure);
+  pressure_calib_dynam_sine (&pressure);
   // pressure_calib_dynam_step (&pressure);
-   pressure_calib_dynam_ramp (&pressure);
+  // pressure_calib_dynam_ramp (&pressure);
 
   pressure_cleanup (&pressure);
 }
@@ -136,7 +170,7 @@ pressure_ramp_v3 (struct Pressure *pressure, uint8_t dev, float target,
             pressure->val = 0;
 
           // Read in pressure value
-          pressure_sensor_read (pressure);
+          pressure_sensor_read (pressure, target);
 
           if ((fabs (pressure->val) <= fabs (b_mx))
               && (fabs (pressure->val) >= fabs (b_mn)))
@@ -172,7 +206,7 @@ pressure_ramp_v3 (struct Pressure *pressure, uint8_t dev, float target,
             pressure->val = 0;
 
           // Read in pressure value
-          pressure_sensor_read (pressure);
+          pressure_sensor_read (pressure, target);
 
           // if (pressure->val <= target)
           if ((fabs (pressure->val) <= fabs (b_mx))
@@ -197,7 +231,7 @@ pressure_ramp_v3 (struct Pressure *pressure, uint8_t dev, float target,
             ;
 
           // Read in pressure value
-          pressure_sensor_read (pressure);
+          pressure_sensor_read (pressure, target);
 
           tim3_wraps++;
           tim3_flg = 0;
@@ -239,7 +273,7 @@ pressure_uart_tx (struct Pressure *pressure)
 }
 
 void
-pressure_sensor_read (struct Pressure *pressure)
+pressure_sensor_read (struct Pressure *pressure, float target)
 {
   /*
   HAL_ADC_PollForConversion (pressure.hadc, HAL_MAX_DELAY);
@@ -247,6 +281,7 @@ pressure_sensor_read (struct Pressure *pressure)
                   * (PRESSURE_SENSOR_RANGE / ADC_RESOLUTION);
  */
   pressure_uart_tx (pressure);
+  pressure_lcd_draw (pressure, target);
 }
 
 void
@@ -268,7 +303,7 @@ pressure_calib_static (struct Pressure *pressure, float target)
         ;
 
       // Read in pressure value
-      pressure_sensor_read (pressure);
+      pressure_sensor_read (pressure, target);
 
       tim3_flg = 0;
     }
@@ -316,7 +351,7 @@ pressure_ramp_v2 (struct Pressure *pressure, float target, float rate)
             pressure->val += m_c / 10;
 
           // Read in pressure value
-          pressure_sensor_read (pressure);
+          pressure_sensor_read (pressure, target);
 
           tim3_wraps++;
           tim3_flg = 0;
@@ -347,7 +382,7 @@ pressure_ramp_v2 (struct Pressure *pressure, float target, float rate)
             pressure->val -= m_c / 10;
 
           // Read in pressure value
-          pressure_sensor_read (pressure);
+          pressure_sensor_read (pressure, target);
 
           tim3_wraps++;
           tim3_flg = 0;
@@ -368,7 +403,7 @@ pressure_ramp_v2 (struct Pressure *pressure, float target, float rate)
             ;
 
           // Read in pressure value
-          pressure_sensor_read (pressure);
+          pressure_sensor_read (pressure, target);
 
           tim3_wraps++;
           tim3_flg = 0;
@@ -403,7 +438,7 @@ pressure_ramp (struct Pressure *pressure, float target, float rate)
             pressure->val += m_c / 10;
 
           // Read in pressure value
-          pressure_sensor_read (pressure);
+          pressure_sensor_read (pressure, target);
 
           tim3_wraps++;
           tim3_flg = 0;
@@ -429,7 +464,7 @@ pressure_ramp (struct Pressure *pressure, float target, float rate)
             pressure->val -= m_c / 10;
 
           // Read in pressure value
-          pressure_sensor_read (pressure);
+          pressure_sensor_read (pressure, target);
 
           tim3_wraps++;
           tim3_flg = 0;
@@ -446,7 +481,7 @@ pressure_ramp (struct Pressure *pressure, float target, float rate)
             ;
 
           // Read in pressure value
-          pressure_sensor_read (pressure);
+          pressure_sensor_read (pressure, target);
 
           tim3_wraps++;
           tim3_flg = 0;
@@ -517,11 +552,14 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
   // Use above info to gen sine points
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
-    yi[i] = ((((4 * ampl) / per) * fabs (fmod ((fmod ((ti[i] - (per / 4)), per) + per), per) - (per / 2))) - ampl);
+    yi[i] = ((((4 * ampl) / per)
+              * fabs (fmod ((fmod ((ti[i] - (per / 4)), per) + per), per)
+                      - (per / 2)))
+             - ampl);
 
   // Ramp to initial offset
- // while (!pressure_ramp_v3 (pressure, 1, offs, 0.1f))
- //   ;
+  // while (!pressure_ramp_v3 (pressure, 1, offs, 0.1f))
+  //   ;
 
   while (1)
     {
@@ -551,7 +589,7 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
 void
 pressure_calib_dynam_sine (struct Pressure *pressure)
 {
-  float ampl = 2.0f;
+  float ampl = 4.0f;
   float offs = 3.0f;
   float freq = 0.05f;
   float sw = 0.5f; // switching in sec
