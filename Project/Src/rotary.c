@@ -15,10 +15,10 @@ rotary_setcount (int count)
   rotary_count = count;
 }
 
-unsigned char
-rotary_check (void)
+int8_t
+rotary_get_input (void)
 {
-  unsigned char status = 0;
+  int8_t status = 0;
 
   CLK_state = HAL_GPIO_ReadPin (GPIOA, ROTARY_CLK_PIN);
 
@@ -27,12 +27,13 @@ rotary_check (void)
       if (HAL_GPIO_ReadPin (GPIOA, ROTARY_DT_PIN) == 1)
         {
           rotary_count++;
+          status = 1;
         }
       else
         {
           rotary_count--;
+          status = -1;
         }
-      status = 1;
     }
 
   btn_state = HAL_GPIO_ReadPin (GPIOA, ROTARY_SW_PIN);

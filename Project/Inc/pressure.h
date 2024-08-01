@@ -16,6 +16,12 @@
 
 #define PRESSURE_PWM_FREQ 1000 // ms
 
+struct Menu
+{
+  float prev_val;
+  uint8_t output;
+};
+
 struct Pressure
 {
   float val;
@@ -32,6 +38,7 @@ struct Pressure
   TIM_HandleTypeDef *htim_upd;
   uint32_t comp_pwm_ch;
   uint32_t exhst_pwm_ch;
+  struct Menu menu;
 };
 
 void pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,

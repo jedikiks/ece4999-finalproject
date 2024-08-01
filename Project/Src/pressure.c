@@ -43,31 +43,13 @@ HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim)
 void
 pressure_lcd_draw (struct Pressure *pressure, float target)
 {
-  // pressure +/- uncert
-  // current time
-  /*
-  ** new timer counts to 1 ms
-  */
-  /*
-  I2C_LCD_Clear(I2C_LCD_1);
-  I2C_LCD_SetCursor(I2C_LCD_1, 3, 1);
-  I2C_LCD_WriteString(I2C_LCD_1, "Connect Device");
-
-  I2C_LCD_Clear (I2C_LCD_1);
-  I2C_LCD_SetCursor (I2C_LCD_1, 0, 0);
-
-  uint8_t buf[35] = { '\0' };
-  snprintf (buf, 35, "%.2f", menu->menuitem[current_opt + i]->value);
-  I2C_LCD_WriteString (I2C_LCD_1, "str");
-  */
-
   I2C_LCD_Clear (I2C_LCD_1);
 
   // Pressure value
   {
     I2C_LCD_SetCursor (I2C_LCD_1, 0, 0);
     uint8_t buf[20] = { '\0' };
-    snprintf (buf, 20, "Current: %.3f psi", pressure->val);
+    snprintf (buf, 20, "Cur:  %.3f psi", pressure->val);
     I2C_LCD_WriteString (I2C_LCD_1, buf);
   }
 
@@ -75,7 +57,7 @@ pressure_lcd_draw (struct Pressure *pressure, float target)
   {
     I2C_LCD_SetCursor (I2C_LCD_1, 0, 1);
     uint8_t buf[20] = { '\0' };
-    snprintf (buf, 20, "Deviation: %.3f%%",
+    snprintf (buf, 20, "Dev:  %.2f%%",
               ((pressure->val - target) / target) * 100);
     I2C_LCD_WriteString (I2C_LCD_1, buf);
   }
@@ -107,7 +89,9 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
                                .htim_pwm = htim_pwm,
                                .comp_pwm_ch = comp_pwm_ch,
                                .exhst_pwm_ch = exhst_pwm_ch,
-                               .htim_upd = htim_upd };
+                               .htim_upd = htim_upd,
+                               .menu.output = 0,
+                               .menu.prev_val = 0 };
 
   pressure_init (&pressure);
 

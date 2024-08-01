@@ -1,4 +1,4 @@
-#include "proj_main.h"
+#include "pressure.h"
 #include "rotary.h"
 
 #include <stdlib.h>
@@ -6,6 +6,19 @@
 
 unsigned char cursor_row = 0;
 
+enum lcd_state
+{
+  STATE_S1,
+  STATE_S1A,
+  STATE_S2,
+  STATE_S2A,
+  STATE_S3,
+  STATE_S3A,
+  STATE_S4,
+  STATE_S4A
+};
+
+/*
 enum MenuState
 {
   MainState,
@@ -121,7 +134,6 @@ menu_getopt (void)
           //  TODO: So in that case, you'll need to write 2 functions:
           //   1. One that prints sensor data to the lcd (like the code below)
           //   2. One that jumps to the test for the currently connected device
-
         }
       else
         {
@@ -172,3 +184,275 @@ menu_getopt (void)
       break;
     };
 };
+*/
+
+/*
+void
+menu_sm_setstate (enum lcd_state state)
+{
+  switch (rotary_get_input ())
+    {
+    case -1:
+      state > STATE_S1 ? state-- : STATE_S1;
+      break;
+
+    case 1:
+      state < STATE_S4 ? state++ : STATE_S1;
+      break;
+
+    case 2:
+      state = STATE_S5;
+      break;
+
+    default:
+      break;
+    }
+}
+*/
+
+void
+menu_sm_printinfo (struct Pressure *pressure)
+{
+  // Pressure value
+  menu_sm_println ("Cur:  %.3f psi", pressure->val, 0, 0);
+
+  // Deviation from target
+  menu_sm_println ("Dev:  %.2f%%", ((pressure->val - target) / target) * 100,
+                   0, 1);
+
+  // Time
+      menu_sm_println ("Time: %.1f sec", tim3_elapsed, 0, 2;
+}
+
+void
+menu_sm_println (const char *str, float val, uint8_t cursor_x,
+                 uint8_t cursor_y)
+{
+  I2C_LCD_SetCursor (I2C_LCD_1, cursor_x, cursor_y);
+
+  char buf[20] = { '\0' };
+  snprintf (buf, 20, str, val);
+
+  I2C_LCD_WriteString (I2C_LCD_1, buf);
+}
+
+void
+menu_sm (struct Pressure *pressure)
+{
+  enum lcd_state pressure_lcd_state;
+
+  I2C_LCD_Clear (I2C_LCD_1);
+
+  switch (pressure_lcd_state)
+    {
+    case STATE_S1:
+      menu_sm_printinfo (pressure);                                 // Info
+      menu_sm_println ("<< Freq: %.2f sec>>", pressure->freq, 0, 3); // Option
+      I2C_LCD_SetCursor (I2C_LCD_1, 3, 3);
+
+      switch (rotary_get_input ())
+        {
+        case -1:
+          pressure_lcd_state = STATE_S4;
+          break;
+
+        case 1:
+          pressure_lcd_state = STATE_S2;
+          break;
+
+        case 2:
+          state = STATE_S1A;
+          pressure->menu.prev_val = pressure->freq;
+          break;
+
+        default:
+          break;
+        }
+      break;
+
+    case STATE_S1A:
+      menu_sm_printinfo (pressure);
+      menu_sm_println ("<<Freq: %.2f sec>>", pressure->menu.prev_val, 0, 3);
+      I2C_LCD_SetCursor (I2C_LCD_1, 7, 3);
+
+      switch (rotary_get_input ())
+        {
+        case -1:
+          if (pressure->menu.prev_val > 0.0f)
+            pressure->menu.prev_val -= 0.10f;
+          break;
+
+        case 1:
+          if (pressure->menu.prev_val < 0.50f)
+            pressure->menu.prev_val += 0.10f;
+          break;
+
+        case 2:
+          pressure_lcd_state = STATE_S1;
+          pressure->freq = pressure->menu.prev_val;
+          break;
+
+        default:
+          break;
+        }
+
+      break;
+
+    case STATE_S2:
+      menu_sm_printinfo (pressure);
+      menu_sm_println ("<< Ampl: %.2f sec>>", pressure->ampl, 0, 3);
+      I2C_LCD_SetCursor (I2C_LCD_1, 3, 3);
+
+      switch (rotary_get_input ())
+        {
+        case -1:
+          pressure_lcd_state = STATE_S1;
+          break;
+
+        case 1:
+          pressure_lcd_state = STATE_S3;
+          break;
+
+        case 2:
+          pressure_lcd_state = STATE_S2A;
+          pressure->menu.prev_val = pressure->ampl;
+          break;
+
+        default:
+          break;
+        }
+      break;
+
+    case STATE_S2A:
+      menu_sm_printinfo (pressure);
+      menu_sm_println ("<<Ampl: %.2f sec>>", pressure->menu.prev_val, 0, 3);
+      I2C_LCD_SetCursor (I2C_LCD_1, 7, 3);
+
+      switch (rotary_get_input ())
+        {
+        case -1:
+          if (pressure->menu.prev_val > 0.0f)
+            pressure->menu.prev_val -= 0.10f;
+          break;
+
+        case 1:
+          if (pressure->menu.prev_val < 100.0f)
+            pressure->menu.prev_val += 0.10f;
+          break;
+
+        case 2:
+          pressure_lcd_state = STATE_S2;
+          pressure->ampl = pressure->menu.prev_val;
+          break;
+
+        default:
+          break;
+        }
+      break;
+
+    case STATE_S3:
+      menu_sm_printinfo (pressure);
+      menu_sm_println ("<< Offs: %.2f sec>>", pressure->offset, 0, 3);
+      I2C_LCD_SetCursor (I2C_LCD_1, 3, 3);
+
+      switch (rotary_get_input ())
+        {
+        case -1:
+          pressure_lcd_state = STATE_S2;
+          break;
+
+        case 1:
+          pressure_lcd_state = STATE_S4;
+          break;
+
+        case 2:
+          pressure_lcd_state = STATE_S3A;
+          pressure->menu.prev_val = pressure->offset;
+          break;
+
+        default:
+          break;
+        }
+      break;
+
+    case STATE_S3A:
+      menu_sm_printinfo (pressure);
+      menu_sm_println ("<<Offs: %.2f sec>>", pressure->menu.prev_val, 0, 3);
+      I2C_LCD_SetCursor (I2C_LCD_1, 7, 3);
+
+      switch (rotary_get_input ())
+        {
+        case -1:
+          if (pressure->menu.prev_val > 0.0f)
+            pressure->menu.prev_val -= 0.10f;
+          break;
+
+        case 1:
+          if (pressure->menu.prev_val < 50.0f)
+            pressure->menu.prev_val += 0.10f;
+          break;
+
+        case 2:
+          pressure_lcd_state = STATE_S3;
+          pressure->offset = pressure->menu.prev_val;
+          break;
+
+        default:
+          break;
+        }
+      break;
+
+    case STATE_S4:
+      menu_sm_printinfo (pressure);
+      menu_sm_println ("<< Output: %d>>", pressure->menu.output, 0, 3);
+      I2C_LCD_SetCursor (I2C_LCD_1, 3, 3);
+
+      switch (rotary_get_input ())
+        {
+        case -1:
+          pressure_lcd_state = STATE_S3;
+          break;
+
+        case 1:
+          pressure_lcd_state = STATE_S1;
+          break;
+
+        case 2:
+          pressure_lcd_state = STATE_S4A;
+          pressure->menu.prev_val = pressure->menu.output;
+          break;
+
+        default:
+          break;
+        }
+      break;
+
+    case STATE_S4A:
+      menu_sm_printinfo (pressure);
+      menu_sm_println ("<<Output: %d>>", pressure->menu.prev_val, 0, 3);
+      I2C_LCD_SetCursor (I2C_LCD_1, 7, 3);
+
+      switch (rotary_get_input ())
+        {
+        case -1:
+          pressure->menu.prev_val == 1 ? 0 : 1;
+          break;
+
+        case 1:
+          pressure->menu.prev_val == 1 ? 0 : 1;
+          break;
+
+        case 2:
+          pressure_lcd_state = STATE_S4;
+          pressure->menu.output = pressure->menu.prev_val;
+          break;
+
+        default:
+          break;
+        }
+      break;
+
+    default:
+      break;
+    }
+}
