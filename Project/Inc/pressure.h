@@ -53,7 +53,8 @@ void pressure_decomp (struct Pressure *pressure);
 void pressure_cleanup (struct Pressure *pressure);
 void pressure_uart_tx (struct Pressure *pressure);
 void pressure_sensor_read (struct Pressure *pressure, float target);
-void pressure_calib_static (struct Pressure *pressure, float target);
+
+void pressure_calib_static (struct Pressure *pressure);
 void pressure_calib_dynam_step (struct Pressure *pressure);
 void pressure_calib_dynam_ramp (struct Pressure *pressure);
 void pressure_calib_dynam_sine (struct Pressure *pressure);
