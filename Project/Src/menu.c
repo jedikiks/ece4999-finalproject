@@ -273,7 +273,10 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
           break;
 
         case 1:
-          pressure_lcd_state = STATE_S1;
+          if (waveform_idx != 0)
+            pressure_lcd_state = STATE_S1;
+          else
+            pressure_lcd_state = STATE_S3;
           break;
 
         case 2:
@@ -305,6 +308,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
         default:
           break;
         }
+
       if (pressure->menu.prev_val > 3)
         pressure->menu.prev_val = 0;
       else if (pressure->menu.prev_val < 0)
@@ -403,7 +407,10 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
       switch (rotary_inpt)
         {
         case -1:
-          pressure_lcd_state = STATE_S2;
+          if (waveform_idx != 0)
+            pressure_lcd_state = STATE_S2;
+          else
+            pressure_lcd_state = STATE_S0;
           break;
 
         case 1:
