@@ -521,10 +521,10 @@ pressure_calib_dynam_step (struct Pressure *pressure)
   float ampl = 2.0f;
   float offs = 4.0f;
   float freq = 0.1f;
-  float sw = 0.5f; // switching in sec
   */
+  float sw = 0.5f; // switching in sec
 
-  uint8_t N = 1 / (freq * sw);
+  uint8_t N = 1 / (pressure->freq * sw);
 
   // Get linspaced time array
   float ti[N];
@@ -535,7 +535,7 @@ pressure_calib_dynam_step (struct Pressure *pressure)
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
     yi[i] = pressure->offset
-            + ((ampl / 2)
+            + ((pressure->ampl / 2)
                * pow (-1.0f, floor ((2 * ti[i]) / (1 / pressure->freq))));
 
   // Ramp to initial offset
@@ -569,8 +569,8 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
   float offs = 3.0f;
   float freq = 0.05f;
   float per = 1.0f / freq;
-  float sw = 0.5f; // switching in sec
   */
+  float sw = 0.5f; // switching in sec
   uint8_t N = 1 / (pressure->freq * sw);
   float per = 1.0f / pressure->freq;
 
@@ -582,10 +582,10 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
   // Use above info to gen sine points
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
-    yi[i] = ((((4 * ampl) / per)
+    yi[i] = ((((4 * pressure->ampl) / per)
               * fabs (fmod ((fmod ((ti[i] - (per / 4)), per) + per), per)
                       - (per / 2)))
-             - ampl);
+             - pressure->ampl);
 
   // Ramp to initial offset
   // while (!pressure_ramp_v3 (pressure, 1, offs, 0.1f))
@@ -623,9 +623,9 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
   float ampl = 4.0f;
   float offs = 3.0f;
   float freq = 0.05f;
-  float sw = 0.5f; // switching in sec
   */
-  uint8_t N = 1 / (freq * sw);
+  float sw = 0.5f; // switching in sec
+  uint8_t N = 1 / (pressure->freq * sw);
 
   // Get linspaced time array
   float ti[N];
