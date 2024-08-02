@@ -10,6 +10,8 @@
 
 enum lcd_state
 {
+  STATE_S0,
+  STATE_S0A,
   STATE_S1,
   STATE_S1A,
   STATE_S2,
@@ -19,12 +21,16 @@ enum lcd_state
   STATE_S4,
   STATE_S4A
 };
+static enum lcd_state pressure_lcd_state = 0;
 
-enum lcd_state pressure_lcd_state = 0;
+static const char *const waveforms[] = { "Const", "Step", "Ramp", "Sine" };
+uint8_t waveform_idx = 0;
 
 void menu_sm_printinfo (struct Pressure *pressure);
 void menu_sm_println (const char *str, float val, uint8_t cursor_x,
                       uint8_t cursor_y);
+void menu_sm_printstr (const char *str, const char *str_val, uint8_t cursor_x,
+                       uint8_t cursor_y);
 
 /*
 enum MenuState
@@ -32,15 +38,6 @@ enum MenuState
   MainState,
   OptState,
 } menu_state;
-
-const char *opt_txt[][5] = {
-  { "Wave         Const", "Wave         Step", "Wave         Ramp",
-    "Wave         Sine" },
-  { "Frequency", "Period" },
-  { "Amplitude", "HighLevel" },
-  { "Offset", "LowLevel" },
-  { "Begin Test" },
-};
 
 struct Menu menu[2];
 
@@ -240,6 +237,18 @@ menu_sm_printinfo (struct Pressure *pressure)
 }
 
 void
+menu_sm_printstr (const char *str, const char *str_val, uint8_t cursor_x,
+                  uint8_t cursor_y)
+{
+  I2C_LCD_SetCursor (I2C_LCD_1, cursor_x, cursor_y);
+
+  char buf[20] = { '\0' };
+  snprintf (buf, 20, str, str_val);
+
+  I2C_LCD_WriteString (I2C_LCD_1, buf);
+}
+
+void
 menu_sm_println (const char *str, float val, uint8_t cursor_x,
                  uint8_t cursor_y)
 {
@@ -256,11 +265,57 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
 {
   switch (pressure_lcd_state)
     {
-    case STATE_S1:
+    case STATE_S0:
       switch (rotary_inpt)
         {
         case -1:
           pressure_lcd_state = STATE_S4;
+          break;
+
+        case 1:
+          pressure_lcd_state = STATE_S1;
+          break;
+
+        case 2:
+          pressure_lcd_state = STATE_S0A;
+          pressure->menu.prev_val = waveform_idx;
+          break;
+
+        default:
+          break;
+        }
+      break;
+
+    case STATE_S0A:
+      switch (rotary_inpt)
+        {
+        case -1:
+          pressure->menu.prev_val -= 1;
+          break;
+
+        case 1:
+          pressure->menu.prev_val += 1;
+          break;
+
+        case 2:
+          pressure_lcd_state = STATE_S0;
+          waveform_idx = pressure->menu.prev_val;
+          break;
+
+        default:
+          break;
+        }
+      if (pressure->menu.prev_val > 3)
+        pressure->menu.prev_val = 0;
+      else if (pressure->menu.prev_val < 0)
+        pressure->menu.prev_val = 3;
+      break;
+
+    case STATE_S1:
+      switch (rotary_inpt)
+        {
+        case -1:
+          pressure_lcd_state = STATE_S0;
           break;
 
         case 1:
@@ -396,7 +451,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
           break;
 
         case 1:
-          pressure_lcd_state = STATE_S1;
+          pressure_lcd_state = STATE_S0;
           break;
 
         case 2:
@@ -439,9 +494,26 @@ menu_sm (struct Pressure *pressure)
 
   switch (pressure_lcd_state)
     {
+    case STATE_S0:
+      menu_sm_printinfo (pressure); // Info
+      menu_sm_printstr ("<< Wave: %s>>", waveforms[waveform_idx], 0,
+                        3); // Option
+      I2C_LCD_SetCursor (I2C_LCD_1, 2, 3);
+      I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
+      break;
+
+    case STATE_S0A:
+      menu_sm_printinfo (pressure); // Info
+      menu_sm_printstr ("<<Wave: %s>>",
+                        waveforms[(uint8_t)pressure->menu.prev_val], 0,
+                        3); // Option
+      I2C_LCD_SetCursor (I2C_LCD_1, 7, 3);
+      I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
+      break;
+
     case STATE_S1:
       menu_sm_printinfo (pressure); // Info
-      menu_sm_println ("<< Freq: %.2f sec>>", pressure->freq, 0,
+      menu_sm_println ("<< Peri: %.2f sec>>", pressure->freq, 0,
                        3); // Option
       I2C_LCD_SetCursor (I2C_LCD_1, 2, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
@@ -449,7 +521,7 @@ menu_sm (struct Pressure *pressure)
 
     case STATE_S1A:
       menu_sm_printinfo (pressure);
-      menu_sm_println ("<<Freq: %.2f sec>>", pressure->menu.prev_val, 0, 3);
+      menu_sm_println ("<<Peri: %.2f sec>>", pressure->menu.prev_val, 0, 3);
       I2C_LCD_SetCursor (I2C_LCD_1, 7, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
