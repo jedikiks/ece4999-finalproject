@@ -260,9 +260,11 @@ menu_sm_println (const char *str, float val, uint8_t cursor_x,
   I2C_LCD_WriteString (I2C_LCD_1, buf);
 }
 
-uint8_t
+int8_t
 menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
 {
+  uint8_t status = 0;
+
   switch (pressure_lcd_state)
     {
     case STATE_S0:
@@ -461,35 +463,26 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
           pressure_lcd_state = STATE_S0;
           break;
 
-        case 2:
-          pressure_lcd_state = STATE_S4A;
-          pressure->menu.prev_val = pressure->menu.output;
+        case 2: // Change in output
+          if (pressure->menu.output <= 0)
+            pressure->menu.output = 1;
+
+          status = 1;
           break;
 
         default:
           break;
         }
       break;
-
-    case STATE_S4A:
-      switch (rotary_inpt)
-        {
-        case 2:
-          pressure_lcd_state = STATE_S4;
-          pressure->menu.output = pressure->menu.prev_val;
-          break;
-
-        default:
-          if (pressure->menu.prev_val <= 0)
-            pressure->menu.prev_val = 1;
-          else if (pressure->menu.prev_val >= 1)
-            pressure->menu.prev_val = 0;
-          break;
-        }
 
     default:
       break;
     }
+
+  if (status == 1)
+    return waveform_idx;
+  else
+    return -1;
 }
 
 uint8_t

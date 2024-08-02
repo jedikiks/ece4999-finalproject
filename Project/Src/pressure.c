@@ -102,21 +102,40 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
   menu_sm (&pressure);
 
   int8_t rotary_inpt;
+  int8_t menu_output = 0;
   while (1)
     {
       rotary_inpt = rotary_get_input ();
 
       if (rotary_inpt != 0)
         {
-          menu_sm_setstate (&pressure, rotary_inpt);
+          menu_output = menu_sm_setstate (&pressure, rotary_inpt);
           menu_sm (&pressure);
         }
-    }
 
-  // pressure_calib_static (&pressure, 10.0f);
-  // pressure_calib_dynam_sine (&pressure);
-  // pressure_calib_dynam_step (&pressure);
-  // pressure_calib_dynam_ramp (&pressure);
+      switch (menu_output)
+        {
+        case 0:
+          pressure_calib_static (&pressure);
+          break;
+        case 1:
+          pressure_calib_dynam_step (&pressure);
+          break;
+        case 2:
+          pressure_calib_dynam_ramp (&pressure);
+          break;
+        case 3:
+          pressure_calib_dynam_sine (&pressure);
+          break;
+        default:
+          break;
+        }
+
+      while (pressure.val >= 0.0000005f)
+        pressure_ramp_v3(&pressure, 2, 0.0f, 0.10f);
+
+      pressure.menu.output = 0;
+    }
 
   pressure_cleanup (&pressure);
 }
@@ -515,8 +534,9 @@ pressure_calib_dynam_step (struct Pressure *pressure)
   // Use above info to gen sine points
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
-    yi[i]
-        = pressure->offset + ((ampl / 2) * pow (-1.0f, floor ((2 * ti[i]) / (1 / pressure->freq))));
+    yi[i] = pressure->offset
+            + ((ampl / 2)
+               * pow (-1.0f, floor ((2 * ti[i]) / (1 / pressure->freq))));
 
   // Ramp to initial offset
   while (!pressure_ramp_v3 (pressure, 1, pressure->offset, 0.1f))
@@ -615,7 +635,8 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
   // Use above info to gen sine points
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
-    yi[i] = pressure->offset + ((pressure->ampl / 2) * sin (2 * M_PI * pressure->freq * ti[i]));
+    yi[i] = pressure->offset
+            + ((pressure->ampl / 2) * sin (2 * M_PI * pressure->freq * ti[i]));
 
   // Ramp to initial offset
   while (!pressure_ramp_v3 (pressure, 1, pressure->offset, 0.1f))

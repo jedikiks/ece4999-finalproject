@@ -40,6 +40,6 @@ void menu_getopt (void);
 
 void menu_sm_init (struct Pressure *pressure);
 uint8_t menu_sm (struct Pressure *pressure);
-uint8_t menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt);
+int8_t menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt);
 
 #endif // MENU_H_
