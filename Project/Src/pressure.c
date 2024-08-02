@@ -1,5 +1,7 @@
 #include "pressure.h"
 #include "I2C_LCD.h"
+#include "menu.h"
+#include "rotary.h"
 #include "stm32f411xe.h"
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_gpio.h"
@@ -80,6 +82,7 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
                                .val_last = 0.0f,
                                .val_min = 0.0f,
                                .val_max = 150.0f,
+                               .target = 0.0f,
                                .units = "psi",
                                .freq = 0.05f,
                                .ampl = 1.0f,
@@ -91,12 +94,28 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
                                .exhst_pwm_ch = exhst_pwm_ch,
                                .htim_upd = htim_upd,
                                .menu.output = 0,
-                               .menu.prev_val = 0 };
+                               .menu.prev_val = 0,
+                               .menu.upd_flg = 0 };
 
   pressure_init (&pressure);
+  menu_sm_init (&pressure);
+  menu_sm (&pressure);
+
+  int8_t rotary_inpt;
+  while (1)
+    {
+      rotary_inpt = rotary_get_input ();
+
+      if (rotary_inpt != 0)
+        {
+          menu_sm_setstate (&pressure, rotary_inpt);
+          menu_sm (&pressure);
+        }
+
+    }
 
   // pressure_calib_static (&pressure, 10.0f);
-  pressure_calib_dynam_sine (&pressure);
+  // pressure_calib_dynam_sine (&pressure);
   // pressure_calib_dynam_step (&pressure);
   // pressure_calib_dynam_ramp (&pressure);
 
@@ -264,6 +283,8 @@ pressure_sensor_read (struct Pressure *pressure, float target)
   pressure.val = HAL_ADC_GetValue (pressure.hadc)
                   * (PRESSURE_SENSOR_RANGE / ADC_RESOLUTION);
  */
+  pressure->menu.upd_flg = 1;
+  pressure->tim3_elapsed = tim3_elapsed;
   pressure_uart_tx (pressure);
   pressure_lcd_draw (pressure, target);
 }

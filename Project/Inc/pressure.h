@@ -2,6 +2,7 @@
 #define PRESSURE_H_
 
 #include "main.h"
+#include <stdint.h>
 
 #define PRESSURE_UART_TX_PIN GPIO_PIN_2
 #define PRESSURE_UART_RX_PIN GPIO_PIN_3
@@ -20,6 +21,7 @@ struct Menu
 {
   float prev_val;
   uint8_t output;
+  uint8_t upd_flg;
 };
 
 struct Pressure
@@ -32,6 +34,8 @@ struct Pressure
   float freq;
   float ampl;
   float offset;
+  float target;
+  uint8_t tim3_elapsed;
   UART_HandleTypeDef *huart;
   ADC_HandleTypeDef *hadc;
   TIM_HandleTypeDef *htim_pwm;
