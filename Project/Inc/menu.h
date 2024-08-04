@@ -14,6 +14,84 @@ static unsigned char lcd_char_arrow[8] = {
   0b00000  //
 };
 
+static unsigned char lcd_char_scr_3rd_1_3[8] = {
+  0b00011, //
+  0b00011, //
+  0b00011, //
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00000  //
+};
+
+static unsigned char lcd_char_scr_3rd_2_3[8] = {
+  0b00000, //
+  0b00000, //
+  0b00011, //
+  0b00011, //
+  0b00011, //
+  0b00000, //
+  0b00000, //
+  0b00000  //
+};
+
+static unsigned char lcd_char_scr_3rd_3_3[8] = {
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00011, //
+  0b00011, //
+  0b00011  //
+};
+
+
+static unsigned char lcd_char_scr_qt_1_4[8] = {
+  0b00011, //
+  0b00011, //
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00000  //
+};
+
+static unsigned char lcd_char_scr_qt_2_4[8] = {
+  0b00000, //
+  0b00000, //
+  0b00011, //
+  0b00011, //
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00000  //
+};
+
+static unsigned char lcd_char_scr_qt_3_4[8] = {
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00011, //
+  0b00011, //
+  0b00000, //
+  0b00000  //
+};
+
+static unsigned char lcd_char_scr_qt_4_4[8] = {
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00000, //
+  0b00011, //
+  0b00011  //
+};
+
 static const char *const waveforms[] = { "Const", "Step", "Ramp", "Sine" };
 
 void menu_sm_init (struct Pressure *pressure);

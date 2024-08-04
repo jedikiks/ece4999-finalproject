@@ -32,6 +32,13 @@ void
 menu_sm_init (struct Pressure *pressure)
 {
   I2C_LCD_CreateCustomChar (I2C_LCD_1, 0, lcd_char_arrow);
+  I2C_LCD_CreateCustomChar (I2C_LCD_1, 1, lcd_char_scr_3rd_1_3);
+  I2C_LCD_CreateCustomChar (I2C_LCD_1, 2, lcd_char_scr_3rd_2_3);
+  I2C_LCD_CreateCustomChar (I2C_LCD_1, 3, lcd_char_scr_3rd_3_3);
+  I2C_LCD_CreateCustomChar (I2C_LCD_1, 4, lcd_char_scr_qt_1_4);
+  I2C_LCD_CreateCustomChar (I2C_LCD_1, 5, lcd_char_scr_qt_2_4);
+  I2C_LCD_CreateCustomChar (I2C_LCD_1, 6, lcd_char_scr_qt_3_4);
+  I2C_LCD_CreateCustomChar (I2C_LCD_1, 7, lcd_char_scr_qt_4_4);
 }
 
 void
@@ -41,8 +48,8 @@ menu_sm_printinfo (struct Pressure *pressure)
   menu_sm_println ("Cur:  %.3f psi", pressure->val, 0, 0);
 
   // Deviation from target
-  float devi = ((pressure->val - pressure->target)* 100) / pressure->target;
-  if (isnan(devi))
+  float devi = ((pressure->val - pressure->target) * 100) / pressure->target;
+  if (isnan (devi))
     devi = 0.0f;
   menu_sm_println ("Dev:  %.2f%%", devi, 0, 1);
 
@@ -327,74 +334,155 @@ menu_sm (struct Pressure *pressure)
     {
     case STATE_S0:
       menu_sm_printinfo (pressure); // Info
-      menu_sm_printstr ("<< Wave: %s>>", waveforms[waveform_idx], 0,
+      menu_sm_printstr (" Wave: %s", waveforms[waveform_idx], 0,
                         3); // Option
-      I2C_LCD_SetCursor (I2C_LCD_1, 2, 3);
+
+      if (waveform_idx == 0)
+        {
+          I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+          I2C_LCD_PrintCustomChar (I2C_LCD_1, 1);
+        }
+      else
+        {
+          I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+          I2C_LCD_PrintCustomChar (I2C_LCD_1, 4);
+        }
+
+      I2C_LCD_SetCursor (I2C_LCD_1, 0, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
     case STATE_S0A:
       menu_sm_printinfo (pressure); // Info
-      menu_sm_printstr ("<<Wave: %s>>",
+      menu_sm_printstr ("Wave: %s",
                         waveforms[(uint8_t)pressure->menu.prev_val], 0,
                         3); // Option
-      I2C_LCD_SetCursor (I2C_LCD_1, 7, 3);
+
+      if (waveform_idx == 0)
+        {
+          I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+          I2C_LCD_PrintCustomChar (I2C_LCD_1, 1);
+        }
+      else
+        {
+          I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+          I2C_LCD_PrintCustomChar (I2C_LCD_1, 4);
+        }
+
+      I2C_LCD_SetCursor (I2C_LCD_1, 5, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
     case STATE_S1:
       menu_sm_printinfo (pressure); // Info
-      menu_sm_println ("<< Peri: %.2f sec>>", pressure->freq, 0,
+      menu_sm_println (" Peri: %.2f sec", pressure->freq, 0,
                        3); // Option
-      I2C_LCD_SetCursor (I2C_LCD_1, 2, 3);
+
+      I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+      I2C_LCD_PrintCustomChar (I2C_LCD_1, 5);
+
+      I2C_LCD_SetCursor (I2C_LCD_1, 0, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
     case STATE_S1A:
       menu_sm_printinfo (pressure);
-      menu_sm_println ("<<Peri: %.2f sec>>", pressure->menu.prev_val, 0, 3);
-      I2C_LCD_SetCursor (I2C_LCD_1, 7, 3);
+      menu_sm_println ("Peri: %.2f sec", pressure->menu.prev_val, 0, 3);
+
+      I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+      I2C_LCD_PrintCustomChar (I2C_LCD_1, 5);
+
+      I2C_LCD_SetCursor (I2C_LCD_1, 5, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
     case STATE_S2:
       menu_sm_printinfo (pressure);
-      menu_sm_println ("<< Ampl: %.2f pp>>", pressure->ampl, 0, 3);
-      I2C_LCD_SetCursor (I2C_LCD_1, 2, 3);
+      menu_sm_println (" Ampl: %.2f pp", pressure->ampl, 0, 3);
+
+      I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+      I2C_LCD_PrintCustomChar (I2C_LCD_1, 6);
+
+      I2C_LCD_SetCursor (I2C_LCD_1, 0, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
     case STATE_S2A:
       menu_sm_printinfo (pressure);
-      menu_sm_println ("<<Ampl: %.2f pp>>", pressure->menu.prev_val, 0, 3);
-      I2C_LCD_SetCursor (I2C_LCD_1, 7, 3);
+      menu_sm_println ("Ampl: %.2f pp", pressure->menu.prev_val, 0, 3);
+
+      I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+      I2C_LCD_PrintCustomChar (I2C_LCD_1, 6);
+
+      I2C_LCD_SetCursor (I2C_LCD_1, 5, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
     case STATE_S3:
       menu_sm_printinfo (pressure);
-      menu_sm_println ("<< Offs: %.2f psi>>", pressure->offset, 0, 3);
-      I2C_LCD_SetCursor (I2C_LCD_1, 2, 3);
+      menu_sm_println (" Offs: %.2f psi", pressure->offset, 0, 3);
+
+      if (waveform_idx == 0)
+        {
+          I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+          I2C_LCD_PrintCustomChar (I2C_LCD_1, 1);
+        }
+      else
+        {
+          I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+          I2C_LCD_PrintCustomChar (I2C_LCD_1, 6);
+        }
+
+      I2C_LCD_SetCursor (I2C_LCD_1, 0, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
     case STATE_S3A:
       menu_sm_printinfo (pressure);
-      menu_sm_println ("<<Offs: %.2f psi>>", pressure->menu.prev_val, 0, 3);
-      I2C_LCD_SetCursor (I2C_LCD_1, 7, 3);
+      menu_sm_println ("Offs: %.2f psi", pressure->menu.prev_val, 0, 3);
+      I2C_LCD_SetCursor (I2C_LCD_1, 5, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
     case STATE_S4:
       menu_sm_printinfo (pressure);
       I2C_LCD_SetCursor (I2C_LCD_1, 0, 3);
-      I2C_LCD_WriteString (I2C_LCD_1, "<< Press to begin >>");
+      I2C_LCD_WriteString (I2C_LCD_1, " Press to begin ");
+
+      if (waveform_idx == 0)
+        {
+          I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+          I2C_LCD_PrintCustomChar (I2C_LCD_1, 3);
+        }
+      else
+        {
+          I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+          I2C_LCD_PrintCustomChar (I2C_LCD_1, 7);
+        }
+
+      I2C_LCD_SetCursor (I2C_LCD_1, 0, 3);
+      I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
+
       break;
 
     case STATE_S4A:
       menu_sm_printinfo (pressure);
       I2C_LCD_SetCursor (I2C_LCD_1, 0, 3);
-      I2C_LCD_WriteString (I2C_LCD_1, "<< Press to abort >>");
+      I2C_LCD_WriteString (I2C_LCD_1, " Press to abort");
+
+      if (waveform_idx == 0)
+        {
+          I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+          I2C_LCD_PrintCustomChar (I2C_LCD_1, 3);
+        }
+      else
+        {
+          I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
+          I2C_LCD_PrintCustomChar (I2C_LCD_1, 7);
+        }
+
+      I2C_LCD_SetCursor (I2C_LCD_1, 0, 3);
+      I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
     default:
