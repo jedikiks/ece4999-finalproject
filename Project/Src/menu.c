@@ -45,13 +45,13 @@ void
 menu_sm_printinfo (struct Pressure *pressure)
 {
   // Pressure value
-  menu_sm_println ("Cur:  %.3f psi", pressure->val, 0, 0);
+  menu_sm_println ("Cur:  %.1f psi", pressure->val, 0, 0);
 
   // Deviation from target
   float devi = ((pressure->val - pressure->target) * 100) / pressure->target;
   if (isnan (devi))
     devi = 0.0f;
-  menu_sm_println ("Dev:  %.2f%%", devi, 0, 1);
+  menu_sm_println ("Dev:  %.1f%%", devi, 0, 1);
 
   // Time
   menu_sm_println ("Time: %.1f sec", pressure->tim3_elapsed, 0, 2);
