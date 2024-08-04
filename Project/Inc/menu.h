@@ -47,7 +47,6 @@ static unsigned char lcd_char_scr_3rd_3_3[8] = {
   0b00011  //
 };
 
-
 static unsigned char lcd_char_scr_qt_1_4[8] = {
   0b00011, //
   0b00011, //
@@ -121,6 +120,8 @@ void menu_sm (struct Pressure *pressure);
 **   1 - If
 **
 */
-uint8_t menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt);
+void menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt);
+
+uint8_t menu_get_waveform (void);
 
 #endif // MENU_H_

@@ -7,7 +7,7 @@
 
 enum lcd_state
 {
-  STATE_WAVE_,
+  STATE_WAVE,
   STATE_WAVE_SETVAL,
   STATE_PER,
   STATE_PER_SETVAL,
@@ -29,7 +29,7 @@ void menu_sm_printstr (const char *str, const char *str_val, uint8_t cursor_x,
                        uint8_t cursor_y);
 
 void
-menu_sm_init (struct Pressure *pressure)
+menu_sm_init ()
 {
   I2C_LCD_CreateCustomChar (I2C_LCD_1, 0, lcd_char_arrow);
   I2C_LCD_CreateCustomChar (I2C_LCD_1, 1, lcd_char_scr_3rd_1_3);
@@ -85,14 +85,20 @@ menu_sm_println (const char *str, float val, uint8_t cursor_x,
   I2C_LCD_WriteString (I2C_LCD_1, buf);
 }
 
-int8_t
+uint8_t
+menu_get_waveform (void)
+{
+  return waveform_idx;
+}
+
+void
 menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
 {
   uint8_t status = 0;
 
   switch (pressure_lcd_state)
     {
-    case STATE_WAVE_:
+    case STATE_WAVE:
       switch (rotary_inpt)
         {
         case -1:
@@ -128,7 +134,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
           break;
 
         case 2:
-          pressure_lcd_state = STATE_WAVE_;
+          pressure_lcd_state = STATE_WAVE;
           waveform_idx = pressure->menu.prev_val;
           break;
 
@@ -146,7 +152,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
       switch (rotary_inpt)
         {
         case -1:
-          pressure_lcd_state = STATE_WAVE_;
+          pressure_lcd_state = STATE_WAVE;
           break;
 
         case 1:
@@ -237,7 +243,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
           if (waveform_idx != 0)
             pressure_lcd_state = STATE_AMPL;
           else
-            pressure_lcd_state = STATE_WAVE_;
+            pressure_lcd_state = STATE_WAVE;
           break;
 
         case 1:
@@ -285,7 +291,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
           break;
 
         case 1:
-          pressure_lcd_state = STATE_WAVE_;
+          pressure_lcd_state = STATE_WAVE;
           break;
 
         case 2: // Change in output
@@ -327,7 +333,7 @@ menu_sm (struct Pressure *pressure)
 
   switch (pressure_lcd_state)
     {
-    case STATE_WAVE_:
+    case STATE_WAVE:
       menu_sm_printinfo (pressure); // Info
       menu_sm_printstr (" Wave: %s", waveforms[waveform_idx], 0,
                         3); // Option

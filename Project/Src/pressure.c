@@ -55,12 +55,11 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
                                .comp_pwm_ch = comp_pwm_ch,
                                .exhst_pwm_ch = exhst_pwm_ch,
                                .htim_upd = htim_upd,
-                               .menu.output = -1,
-                               .menu.prev_val = 0,
-                               .menu.upd_flg = 0 };
+                               .menu.output = 0,
+                               .menu.prev_val = 0 };
 
   pressure_init (&pressure);
-  menu_sm_init (&pressure);
+  menu_sm_init ();
   menu_sm (&pressure);
 
   int8_t rotary_inpt;
@@ -74,14 +73,14 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
           menu_sm (&pressure);
         }
 
-      if (pressure.menu.output == 1)
+      if (pressure.menu.output)
         {
           HAL_NVIC_EnableIRQ (EXTI9_5_IRQn);
           // FIXME: this sucks V
           tim3_elapsed = 0;
           pressure.tim3_elapsed = 0;
 
-          switch (pressure.menu.output)
+          switch (menu_get_waveform ())
             {
             case 0:
               pressure_calib_static (&pressure);
@@ -106,12 +105,16 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
           HAL_NVIC_DisableIRQ (EXTI9_5_IRQn);
           userint_flg = 0;
 
+          // TODO: need to actually update timer to 0
           tim3_elapsed = 0;
 
+          // TODO: replace this with an actual depressurization function;
+          //   just enable the exhaust and read
           while (pressure.val >= 0.0000005f)
             pressure_ramp_v3 (&pressure, 2, 0.0f, 0.10f);
 
-          pressure.menu.output = -1;
+          pressure.menu.output = 0;
+          menu_sm_setstate (&pressure, 2);
           menu_sm (&pressure);
         }
     }
@@ -275,7 +278,6 @@ pressure_sensor_read (struct Pressure *pressure, float target)
   pressure.val = HAL_ADC_GetValue (pressure.hadc)
                   * (PRESSURE_SENSOR_RANGE / ADC_RESOLUTION);
  */
-  pressure->menu.upd_flg = 1;
   pressure->tim3_elapsed = tim3_elapsed;
   pressure_uart_tx (pressure);
   menu_sm (pressure);
@@ -339,20 +341,35 @@ pressure_calib_dynam_step (struct Pressure *pressure)
 
   // Ramp to initial offset
   while (!pressure_ramp_v3 (pressure, 1, pressure->offset, 0.1f))
-    ;
+  {
+    if (userint_flg)
+      break;
+  }
 
   while (1)
     {
+      if (userint_flg)
+        break;
+
       for (long i = 0; i < N; i++)
         {
+          if (userint_flg)
+            break;
+
           while (i < N / 2)
             {
+              if (userint_flg)
+                break;
+
               pressure_ramp_v3 (pressure, 1, yi[i], 0.1f);
               i++;
             }
 
           while (i < N)
             {
+              if (userint_flg)
+                break;
+
               pressure_ramp_v3 (pressure, 2, yi[i], 0.1f);
               i++;
             }
@@ -395,22 +412,36 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
 
   while (1)
     {
+      if (userint_flg)
+        break;
       for (long i = 0; i < N; i++)
         {
+          if (userint_flg)
+            break;
+
           while (i <= N / 4)
             {
+              if (userint_flg)
+                break;
+
               pressure_ramp_v3 (pressure, 1, yi[i], 0.1f);
               i++;
             }
 
           while (i <= 3 * (N / 4))
             {
+              if (userint_flg)
+                break;
+
               pressure_ramp_v3 (pressure, 2, yi[i], 0.1f);
               i++;
             }
 
           while (i <= N)
             {
+              if (userint_flg)
+                break;
+
               pressure_ramp_v3 (pressure, 1, yi[i], 0.1f);
               i++;
             }
@@ -449,22 +480,37 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
   float current_rate;
   while (1)
     {
+      if (userint_flg)
+        break;
+
       for (long i = 1; i < N; i++)
         {
+          if (userint_flg)
+            break;
+
           while (i < N / 4)
             {
+              if (userint_flg)
+                break;
+
               pressure_ramp_v3 (pressure, 1, yi[i], 0.2f);
               i++;
             }
 
           while (i < 3 * (N / 4))
             {
+              if (userint_flg)
+                break;
+
               pressure_ramp_v3 (pressure, 2, yi[i], 0.2f);
               i++;
             }
 
           while (i < N)
             {
+              if (userint_flg)
+                break;
+
               pressure_ramp_v3 (pressure, 1, yi[i], 0.2f);
               i++;
             }

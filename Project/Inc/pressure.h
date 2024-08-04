@@ -21,7 +21,6 @@ struct Menu
 {
   float prev_val;
   int8_t output;
-  uint8_t upd_flg;
 };
 
 struct Pressure
