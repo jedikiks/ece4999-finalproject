@@ -70,11 +70,11 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
 
       if (rotary_inpt != 0)
         {
-          pressure.menu.output = menu_sm_setstate (&pressure, rotary_inpt);
+          menu_sm_setstate (&pressure, rotary_inpt);
           menu_sm (&pressure);
         }
 
-      if (pressure.menu.output != -1)
+      if (pressure.menu.output == 1)
         {
           HAL_NVIC_EnableIRQ (EXTI9_5_IRQn);
           // FIXME: this sucks V

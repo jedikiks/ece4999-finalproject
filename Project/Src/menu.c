@@ -7,16 +7,16 @@
 
 enum lcd_state
 {
-  STATE_S0,
-  STATE_S0A,
-  STATE_S1,
-  STATE_S1A,
-  STATE_S2,
-  STATE_S2A,
-  STATE_S3,
-  STATE_S3A,
-  STATE_S4,
-  STATE_S4A
+  STATE_WAVE_,
+  STATE_WAVE_SETVAL,
+  STATE_PER,
+  STATE_PER_SETVAL,
+  STATE_AMPL,
+  STATE_AMPL_SETVAL,
+  STATE_OFFS,
+  STATE_OFFS_SETVAL,
+  STATE_OUTPUT,
+  STATE_OUTPUT_SETVAL
 };
 
 static enum lcd_state pressure_lcd_state = 0;
@@ -92,22 +92,22 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
 
   switch (pressure_lcd_state)
     {
-    case STATE_S0:
+    case STATE_WAVE_:
       switch (rotary_inpt)
         {
         case -1:
-          pressure_lcd_state = STATE_S4;
+          pressure_lcd_state = STATE_OUTPUT;
           break;
 
         case 1:
           if (waveform_idx != 0)
-            pressure_lcd_state = STATE_S1;
+            pressure_lcd_state = STATE_PER;
           else
-            pressure_lcd_state = STATE_S3;
+            pressure_lcd_state = STATE_OFFS;
           break;
 
         case 2:
-          pressure_lcd_state = STATE_S0A;
+          pressure_lcd_state = STATE_WAVE_SETVAL;
           pressure->menu.prev_val = waveform_idx;
           break;
 
@@ -116,7 +116,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
         }
       break;
 
-    case STATE_S0A:
+    case STATE_WAVE_SETVAL:
       switch (rotary_inpt)
         {
         case -1:
@@ -128,7 +128,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
           break;
 
         case 2:
-          pressure_lcd_state = STATE_S0;
+          pressure_lcd_state = STATE_WAVE_;
           waveform_idx = pressure->menu.prev_val;
           break;
 
@@ -142,19 +142,19 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
         pressure->menu.prev_val = 3;
       break;
 
-    case STATE_S1:
+    case STATE_PER:
       switch (rotary_inpt)
         {
         case -1:
-          pressure_lcd_state = STATE_S0;
+          pressure_lcd_state = STATE_WAVE_;
           break;
 
         case 1:
-          pressure_lcd_state = STATE_S2;
+          pressure_lcd_state = STATE_AMPL;
           break;
 
         case 2:
-          pressure_lcd_state = STATE_S1A;
+          pressure_lcd_state = STATE_PER_SETVAL;
           pressure->menu.prev_val = pressure->freq;
           break;
 
@@ -163,7 +163,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
         }
       break;
 
-    case STATE_S1A:
+    case STATE_PER_SETVAL:
       switch (rotary_inpt)
         {
         case -1:
@@ -177,7 +177,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
           break;
 
         case 2:
-          pressure_lcd_state = STATE_S1;
+          pressure_lcd_state = STATE_PER;
           pressure->freq = pressure->menu.prev_val;
           break;
 
@@ -186,19 +186,19 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
         }
       break;
 
-    case STATE_S2:
+    case STATE_AMPL:
       switch (rotary_inpt)
         {
         case -1:
-          pressure_lcd_state = STATE_S1;
+          pressure_lcd_state = STATE_PER;
           break;
 
         case 1:
-          pressure_lcd_state = STATE_S3;
+          pressure_lcd_state = STATE_OFFS;
           break;
 
         case 2:
-          pressure_lcd_state = STATE_S2A;
+          pressure_lcd_state = STATE_AMPL_SETVAL;
           pressure->menu.prev_val = pressure->ampl;
           break;
 
@@ -207,7 +207,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
         }
       break;
 
-    case STATE_S2A:
+    case STATE_AMPL_SETVAL:
       switch (rotary_inpt)
         {
         case -1:
@@ -221,7 +221,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
           break;
 
         case 2:
-          pressure_lcd_state = STATE_S2;
+          pressure_lcd_state = STATE_AMPL;
           pressure->ampl = pressure->menu.prev_val;
           break;
 
@@ -230,22 +230,22 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
         }
       break;
 
-    case STATE_S3:
+    case STATE_OFFS:
       switch (rotary_inpt)
         {
         case -1:
           if (waveform_idx != 0)
-            pressure_lcd_state = STATE_S2;
+            pressure_lcd_state = STATE_AMPL;
           else
-            pressure_lcd_state = STATE_S0;
+            pressure_lcd_state = STATE_WAVE_;
           break;
 
         case 1:
-          pressure_lcd_state = STATE_S4;
+          pressure_lcd_state = STATE_OUTPUT;
           break;
 
         case 2:
-          pressure_lcd_state = STATE_S3A;
+          pressure_lcd_state = STATE_OFFS_SETVAL;
           pressure->menu.prev_val = pressure->offset;
           break;
 
@@ -254,7 +254,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
         }
       break;
 
-    case STATE_S3A:
+    case STATE_OFFS_SETVAL:
       switch (rotary_inpt)
         {
         case -1:
@@ -268,7 +268,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
           break;
 
         case 2:
-          pressure_lcd_state = STATE_S3;
+          pressure_lcd_state = STATE_OFFS;
           pressure->offset = pressure->menu.prev_val;
           break;
 
@@ -277,23 +277,22 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
         }
       break;
 
-    case STATE_S4:
+    case STATE_OUTPUT:
       switch (rotary_inpt)
         {
         case -1:
-          pressure_lcd_state = STATE_S3;
+          pressure_lcd_state = STATE_OFFS;
           break;
 
         case 1:
-          pressure_lcd_state = STATE_S0;
+          pressure_lcd_state = STATE_WAVE_;
           break;
 
         case 2: // Change in output
           if (pressure->menu.output <= 0)
             pressure->menu.output = 1;
 
-          pressure_lcd_state = STATE_S4A;
-          status = 1;
+          pressure_lcd_state = STATE_OUTPUT_SETVAL;
           break;
 
         default:
@@ -301,15 +300,14 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
         }
       break;
 
-    case STATE_S4A:
+    case STATE_OUTPUT_SETVAL:
       switch (rotary_inpt)
         {
         case 2:
           if (pressure->menu.output >= 1)
-            pressure->menu.output = -1;
+            pressure->menu.output = 0;
 
-          pressure_lcd_state = STATE_S4;
-          status = 1;
+          pressure_lcd_state = STATE_OUTPUT;
           break;
 
         default:
@@ -320,23 +318,16 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
     default:
       break;
     }
-
-  if (status == 1)
-    return waveform_idx;
-  else
-    return -1;
 }
 
-uint8_t
+void
 menu_sm (struct Pressure *pressure)
 {
-  int8_t status = 0;
-
   I2C_LCD_Clear (I2C_LCD_1);
 
   switch (pressure_lcd_state)
     {
-    case STATE_S0:
+    case STATE_WAVE_:
       menu_sm_printinfo (pressure); // Info
       menu_sm_printstr (" Wave: %s", waveforms[waveform_idx], 0,
                         3); // Option
@@ -356,7 +347,7 @@ menu_sm (struct Pressure *pressure)
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
-    case STATE_S0A:
+    case STATE_WAVE_SETVAL:
       menu_sm_printinfo (pressure); // Info
       menu_sm_printstr ("Wave: %s",
                         waveforms[(uint8_t)pressure->menu.prev_val], 0,
@@ -377,7 +368,7 @@ menu_sm (struct Pressure *pressure)
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
-    case STATE_S1:
+    case STATE_PER:
       menu_sm_printinfo (pressure); // Info
       menu_sm_println (" Peri: %.2f sec", pressure->freq, 0,
                        3); // Option
@@ -389,7 +380,7 @@ menu_sm (struct Pressure *pressure)
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
-    case STATE_S1A:
+    case STATE_PER_SETVAL:
       menu_sm_printinfo (pressure);
       menu_sm_println ("Peri: %.2f sec", pressure->menu.prev_val, 0, 3);
 
@@ -400,7 +391,7 @@ menu_sm (struct Pressure *pressure)
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
-    case STATE_S2:
+    case STATE_AMPL:
       menu_sm_printinfo (pressure);
       menu_sm_println (" Ampl: %.2f pp", pressure->ampl, 0, 3);
 
@@ -411,7 +402,7 @@ menu_sm (struct Pressure *pressure)
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
-    case STATE_S2A:
+    case STATE_AMPL_SETVAL:
       menu_sm_printinfo (pressure);
       menu_sm_println ("Ampl: %.2f pp", pressure->menu.prev_val, 0, 3);
 
@@ -422,7 +413,7 @@ menu_sm (struct Pressure *pressure)
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
-    case STATE_S3:
+    case STATE_OFFS:
       menu_sm_printinfo (pressure);
       menu_sm_println (" Offs: %.2f psi", pressure->offset, 0, 3);
 
@@ -441,14 +432,14 @@ menu_sm (struct Pressure *pressure)
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
-    case STATE_S3A:
+    case STATE_OFFS_SETVAL:
       menu_sm_printinfo (pressure);
       menu_sm_println ("Offs: %.2f psi", pressure->menu.prev_val, 0, 3);
       I2C_LCD_SetCursor (I2C_LCD_1, 5, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
-    case STATE_S4:
+    case STATE_OUTPUT:
       menu_sm_printinfo (pressure);
       I2C_LCD_SetCursor (I2C_LCD_1, 0, 3);
       I2C_LCD_WriteString (I2C_LCD_1, " Press to begin ");
@@ -469,7 +460,7 @@ menu_sm (struct Pressure *pressure)
 
       break;
 
-    case STATE_S4A:
+    case STATE_OUTPUT_SETVAL:
       menu_sm_printinfo (pressure);
       I2C_LCD_SetCursor (I2C_LCD_1, 0, 3);
       I2C_LCD_WriteString (I2C_LCD_1, " Press to abort");
@@ -492,6 +483,4 @@ menu_sm (struct Pressure *pressure)
     default:
       break;
     }
-
-  return status;
 }

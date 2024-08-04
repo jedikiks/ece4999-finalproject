@@ -94,8 +94,33 @@ static unsigned char lcd_char_scr_qt_4_4[8] = {
 
 static const char *const waveforms[] = { "Const", "Step", "Ramp", "Sine" };
 
-void menu_sm_init (struct Pressure *pressure);
-uint8_t menu_sm (struct Pressure *pressure);
-int8_t menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt);
+/*
+ * @brief Initializes the menu driver for the pressure subsystem.
+ *
+ * Adds custom chars listed under menu.h to I2C_LCD_1.
+ *
+ * @retval none
+ */
+void menu_sm_init (void);
+
+/*
+** @brief State machine that controls the UI displayed on the LCD.
+**
+** @param pressure pointer to a Pressure struct
+**
+** @retval none
+*/
+void menu_sm (struct Pressure *pressure);
+
+/*
+** @brief Sets the state of the LCD state machine based off of rotary_inpt
+**
+** @param pressure pointer to a Pressure struct
+**
+** @retval The exit status of the function
+**   1 - If
+**
+*/
+uint8_t menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt);
 
 #endif // MENU_H_
