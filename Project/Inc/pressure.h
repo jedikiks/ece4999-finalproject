@@ -20,22 +20,18 @@
 struct Menu
 {
   float prev_val;
-  uint8_t output;
+  int8_t output;
   uint8_t upd_flg;
 };
 
 struct Pressure
 {
   float val;
-  float val_last;
-  float val_min;
-  float val_max;
-  const char *units;
   float freq;
   float ampl;
   float offset;
   float target;
-  uint8_t tim3_elapsed;
+  float tim3_elapsed;
   UART_HandleTypeDef *huart;
   ADC_HandleTypeDef *hadc;
   TIM_HandleTypeDef *htim_pwm;
@@ -48,15 +44,5 @@ struct Pressure
 void pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
                     TIM_HandleTypeDef *htim_pwm, uint32_t comp_pwm_ch,
                     uint32_t exhst_pwm_ch, TIM_HandleTypeDef *htim_upd);
-void pressure_init (struct Pressure *pressure);
-void pressure_decomp (struct Pressure *pressure);
-void pressure_cleanup (struct Pressure *pressure);
-void pressure_uart_tx (struct Pressure *pressure);
-void pressure_sensor_read (struct Pressure *pressure, float target);
-
-void pressure_calib_static (struct Pressure *pressure);
-void pressure_calib_dynam_step (struct Pressure *pressure);
-void pressure_calib_dynam_ramp (struct Pressure *pressure);
-void pressure_calib_dynam_sine (struct Pressure *pressure);
 
 #endif // PRESSURE_H_
