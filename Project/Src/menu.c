@@ -51,7 +51,11 @@ menu_sm_printinfo (struct Pressure *pressure)
   float devi = ((pressure->val - pressure->target) * 100) / pressure->target;
   if (isnan (devi))
     devi = 0.0f;
-  menu_sm_println ("Dev:  %.1f%%", devi, 0, 1);
+
+  if (!isinf(devi))
+    menu_sm_println ("Dev:  %.1f%%", devi, 0, 1);
+  else
+    menu_sm_printstr("Dev:  %s", "--", 0, 1);
 
   // Time
   menu_sm_println ("Time: %.1f sec", pressure->tim3_elapsed, 0, 2);
@@ -302,7 +306,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
         {
         case 2:
           if (pressure->menu.output >= 1)
-            pressure->menu.output = 0;
+            pressure->menu.output = -1;
 
           pressure_lcd_state = STATE_S4;
           status = 1;
