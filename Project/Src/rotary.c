@@ -44,32 +44,3 @@ rotary_get_input (void)
 
   return status;
 }
-
-// int8_t
-// rotary_get_input (void)
-//{
-//   int8_t status = 0;
-//
-//   CLK_state = HAL_GPIO_ReadPin (GPIOA, ROTARY_CLK_PIN);
-//   if (CLK_state != prev_CLK_state && CLK_state == GPIO_PIN_SET)
-//     {
-//       if (HAL_GPIO_ReadPin (GPIOA, ROTARY_DT_PIN) == GPIO_PIN_SET)
-//         {
-//           rotary_count--;
-//           status = -1;
-//         }
-//       else if (HAL_GPIO_ReadPin (GPIOA, ROTARY_DT_PIN) == GPIO_PIN_RESET)
-//         {
-//           rotary_count++;
-//           status = 1;
-//         }
-//     }
-//   prev_CLK_state = CLK_state;
-//
-//   btn_state = HAL_GPIO_ReadPin (GPIOA, ROTARY_SW_PIN);
-//   if (last_btn_state == GPIO_PIN_SET && btn_state == GPIO_PIN_RESET)
-//     status = 2;
-//   last_btn_state = btn_state;
-//
-//   return status;
-// }
