@@ -281,6 +281,23 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
           if (pressure->menu.output <= 0)
             pressure->menu.output = 1;
 
+          pressure_lcd_state = STATE_S4A;
+          status = 1;
+          break;
+
+        default:
+          break;
+        }
+      break;
+
+    case STATE_S4A:
+      switch (rotary_inpt)
+        {
+        case 2:
+          if (pressure->menu.output >= 1)
+            pressure->menu.output = 0;
+
+          pressure_lcd_state = STATE_S4;
           status = 1;
           break;
 
@@ -370,16 +387,14 @@ menu_sm (struct Pressure *pressure)
 
     case STATE_S4:
       menu_sm_printinfo (pressure);
-      menu_sm_println ("<< Output: %.0f>>", pressure->menu.output, 0, 3);
-      I2C_LCD_SetCursor (I2C_LCD_1, 2, 3);
-      I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
+      I2C_LCD_SetCursor (I2C_LCD_1, 0, 3);
+      I2C_LCD_WriteString (I2C_LCD_1, "<< Press to begin >>");
       break;
 
     case STATE_S4A:
       menu_sm_printinfo (pressure);
-      menu_sm_println ("<<Output: %.0f>>", pressure->menu.prev_val, 0, 3);
-      I2C_LCD_SetCursor (I2C_LCD_1, 7, 3);
-      I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
+      I2C_LCD_SetCursor (I2C_LCD_1, 0, 3);
+      I2C_LCD_WriteString (I2C_LCD_1, "<< Press to abort >>");
       break;
 
     default:
