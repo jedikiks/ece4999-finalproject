@@ -359,28 +359,28 @@ menu_sm (struct Pressure *pressure)
 
     case STATE_S2:
       menu_sm_printinfo (pressure);
-      menu_sm_println ("<< Ampl: %.2f sec>>", pressure->ampl, 0, 3);
+      menu_sm_println ("<< Ampl: %.2f pp>>", pressure->ampl, 0, 3);
       I2C_LCD_SetCursor (I2C_LCD_1, 2, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
     case STATE_S2A:
       menu_sm_printinfo (pressure);
-      menu_sm_println ("<<Ampl: %.2f sec>>", pressure->menu.prev_val, 0, 3);
+      menu_sm_println ("<<Ampl: %.2f pp>>", pressure->menu.prev_val, 0, 3);
       I2C_LCD_SetCursor (I2C_LCD_1, 7, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
     case STATE_S3:
       menu_sm_printinfo (pressure);
-      menu_sm_println ("<< Offs: %.2f sec>>", pressure->offset, 0, 3);
+      menu_sm_println ("<< Offs: %.2f psi>>", pressure->offset, 0, 3);
       I2C_LCD_SetCursor (I2C_LCD_1, 2, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
 
     case STATE_S3A:
       menu_sm_printinfo (pressure);
-      menu_sm_println ("<<Offs: %.2f sec>>", pressure->menu.prev_val, 0, 3);
+      menu_sm_println ("<<Offs: %.2f psi>>", pressure->menu.prev_val, 0, 3);
       I2C_LCD_SetCursor (I2C_LCD_1, 7, 3);
       I2C_LCD_PrintCustomChar (I2C_LCD_1, 0);
       break;
