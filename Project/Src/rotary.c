@@ -4,7 +4,7 @@
 int CLK_state;
 int prev_CLK_state = 1;
 int btn_state = 0;
-int last_btn_state = GPIO_PIN_RESET;
+int last_btn_state = GPIO_PIN_SET;
 volatile int rotary_count = 0;
 
 int
@@ -36,7 +36,7 @@ rotary_get_input (void)
 
   btn_state = HAL_GPIO_ReadPin (GPIOA, ROTARY_SW_PIN);
 
-  if (last_btn_state == 0 && btn_state == 1)
+  if (last_btn_state == GPIO_PIN_RESET && btn_state == GPIO_PIN_SET)
     status = 2;
 
   last_btn_state = btn_state;
