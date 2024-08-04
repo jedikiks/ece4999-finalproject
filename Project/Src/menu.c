@@ -1,7 +1,6 @@
 #include "menu.h"
 #include "I2C_LCD.h"
 #include "pressure.h"
-#include "rotary.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -21,8 +20,6 @@ enum lcd_state
 };
 
 static enum lcd_state pressure_lcd_state = 0;
-
-static const char *const waveforms[] = { "Const", "Step", "Ramp", "Sine" };
 uint8_t waveform_idx = 0;
 
 void menu_sm_printinfo (struct Pressure *pressure);
@@ -34,7 +31,6 @@ void menu_sm_printstr (const char *str, const char *str_val, uint8_t cursor_x,
 void
 menu_sm_init (struct Pressure *pressure)
 {
-  pressure->menu.upd_flg = 1;
   I2C_LCD_CreateCustomChar (I2C_LCD_1, 0, lcd_char_arrow);
 }
 

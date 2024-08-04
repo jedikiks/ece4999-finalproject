@@ -2,10 +2,6 @@
 #include "I2C_LCD.h"
 #include "menu.h"
 #include "rotary.h"
-#include "stm32f411xe.h"
-#include "stm32f4xx_hal.h"
-#include "stm32f4xx_hal_gpio.h"
-#include "stm32f4xx_hal_tim.h"
 
 #include <math.h>
 #include <stdint.h>

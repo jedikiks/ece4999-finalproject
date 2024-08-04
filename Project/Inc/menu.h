@@ -2,7 +2,6 @@
 #define MENU_H_
 
 #include "pressure.h"
-#include <stdint.h>
 
 static unsigned char lcd_char_arrow[8] = {
   0b00000, //
@@ -14,6 +13,8 @@ static unsigned char lcd_char_arrow[8] = {
   0b00000, //
   0b00000  //
 };
+
+static const char *const waveforms[] = { "Const", "Step", "Ramp", "Sine" };
 
 void menu_sm_init (struct Pressure *pressure);
 uint8_t menu_sm (struct Pressure *pressure);
