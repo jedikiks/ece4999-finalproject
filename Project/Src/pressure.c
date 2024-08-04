@@ -28,7 +28,7 @@ uint8_t pressure_ramp_v3 (struct Pressure *pressure, uint8_t dev, float target,
 void
 HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin)
 {
-  if (GPIO_Pin == GPIO_PIN_13 && !userint_flg_lck)
+  if (GPIO_Pin == GPIO_PIN_8 && !userint_flg_lck)
     {
       userint_flg = 1;
       userint_flg_lck = 1;
@@ -93,7 +93,7 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
                                .comp_pwm_ch = comp_pwm_ch,
                                .exhst_pwm_ch = exhst_pwm_ch,
                                .htim_upd = htim_upd,
-                               .menu.output = 0,
+                               .menu.output = -1,
                                .menu.prev_val = 0,
                                .menu.upd_flg = 0 };
 
@@ -102,39 +102,56 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
   menu_sm (&pressure);
 
   int8_t rotary_inpt;
-  int8_t menu_output = 0;
   while (1)
     {
       rotary_inpt = rotary_get_input ();
 
       if (rotary_inpt != 0)
         {
-          menu_output = menu_sm_setstate (&pressure, rotary_inpt);
+          pressure.menu.output = menu_sm_setstate (&pressure, rotary_inpt);
           menu_sm (&pressure);
         }
 
-      switch (menu_output)
+      if (pressure.menu.output != -1)
         {
-        case 0:
-          pressure_calib_static (&pressure);
-          break;
-        case 1:
-          pressure_calib_dynam_step (&pressure);
-          break;
-        case 2:
-          pressure_calib_dynam_ramp (&pressure);
-          break;
-        case 3:
-          pressure_calib_dynam_sine (&pressure);
-          break;
-        default:
-          break;
+          HAL_NVIC_EnableIRQ (EXTI9_5_IRQn);
+          //FIXME: this sucks V
+          tim3_elapsed = 0;
+          pressure.tim3_elapsed = 0;
+
+          switch (pressure.menu.output)
+            {
+            case 0:
+              pressure_calib_static (&pressure);
+              break;
+
+            case 1:
+              pressure_calib_dynam_step (&pressure);
+              break;
+
+            case 2:
+              pressure_calib_dynam_ramp (&pressure);
+              break;
+
+            case 3:
+              pressure_calib_dynam_sine (&pressure);
+              break;
+
+            default:
+              break;
+            }
+
+          HAL_NVIC_DisableIRQ (EXTI9_5_IRQn);
+          userint_flg = 0;
+
+          tim3_elapsed = 0;
+
+          while (pressure.val >= 0.0000005f)
+            pressure_ramp_v3 (&pressure, 2, 0.0f, 0.10f);
+
+          pressure.menu.output = -1;
+          menu_sm (&pressure);
         }
-
-      while (pressure.val >= 0.0000005f)
-        pressure_ramp_v3(&pressure, 2, 0.0f, 0.10f);
-
-      pressure.menu.output = 0;
     }
 
   pressure_cleanup (&pressure);
@@ -191,6 +208,7 @@ pressure_ramp_v3 (struct Pressure *pressure, uint8_t dev, float target,
             pressure->val = 0;
 
           // Read in pressure value
+          pressure->target = target;
           pressure_sensor_read (pressure, target);
 
           if ((fabs (pressure->val) <= fabs (b_mx))
@@ -227,6 +245,7 @@ pressure_ramp_v3 (struct Pressure *pressure, uint8_t dev, float target,
             pressure->val = 0;
 
           // Read in pressure value
+          pressure->target = target;
           pressure_sensor_read (pressure, target);
 
           // if (pressure->val <= target)
@@ -268,6 +287,8 @@ pressure_ramp_v3 (struct Pressure *pressure, uint8_t dev, float target,
 void
 pressure_init (struct Pressure *pressure)
 {
+  HAL_NVIC_DisableIRQ (EXTI9_5_IRQn);
+
   HAL_ADC_Start (pressure->hadc);
   I2C_LCD_Init (I2C_LCD_1);
 }
@@ -304,12 +325,16 @@ pressure_sensor_read (struct Pressure *pressure, float target)
   pressure->menu.upd_flg = 1;
   pressure->tim3_elapsed = tim3_elapsed;
   pressure_uart_tx (pressure);
-  pressure_lcd_draw (pressure, target);
+  // pressure_lcd_draw (pressure, target);
+  menu_sm (pressure);
 }
 
 void
 pressure_calib_static (struct Pressure *pressure)
 {
+  userint_flg = 0;
+  userint_flg_lck = 0;
+
   // Ramp to initial offset
   while (!pressure_ramp_v3 (pressure, 1, pressure->offset, 0.1f))
     {
@@ -517,6 +542,8 @@ pressure_ramp (struct Pressure *pressure, float target, float rate)
 void
 pressure_calib_dynam_step (struct Pressure *pressure)
 {
+  userint_flg = 0;
+  userint_flg_lck = 0;
   /*
   float ampl = 2.0f;
   float offs = 4.0f;
@@ -564,6 +591,8 @@ pressure_calib_dynam_step (struct Pressure *pressure)
 void
 pressure_calib_dynam_ramp (struct Pressure *pressure)
 {
+  userint_flg = 0;
+  userint_flg_lck = 0;
   /*
   float ampl = 3.0f;
   float offs = 3.0f;
@@ -619,6 +648,8 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
 void
 pressure_calib_dynam_sine (struct Pressure *pressure)
 {
+  userint_flg = 0;
+  userint_flg_lck = 0;
   /*
   float ampl = 4.0f;
   float offs = 3.0f;

@@ -20,7 +20,7 @@
 struct Menu
 {
   float prev_val;
-  uint8_t output;
+  int8_t output;
   uint8_t upd_flg;
 };
 
@@ -35,7 +35,7 @@ struct Pressure
   float ampl;
   float offset;
   float target;
-  uint8_t tim3_elapsed;
+  float tim3_elapsed;
   UART_HandleTypeDef *huart;
   ADC_HandleTypeDef *hadc;
   TIM_HandleTypeDef *htim_pwm;
