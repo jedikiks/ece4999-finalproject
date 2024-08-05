@@ -46,7 +46,7 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
 {
   struct Pressure pressure = { .val = 0.0f,
                                .target = 0.0f,
-                               .freq = 0.05f,
+                               .per = 0.05f,
                                .ampl = 1.0f,
                                .offset = 0.0f,
                                .huart = huart,
@@ -325,19 +325,19 @@ pressure_calib_dynam_step (struct Pressure *pressure)
   */
   float sw = 0.5f; // switching in sec
 
-  uint8_t N = 1 / (pressure->freq * sw);
+  uint8_t N = 1 / (pressure->per * sw);
 
   // Get linspaced time array
   float ti[N];
   for (uint8_t i = 0; i < N; i++)
-    ti[i] = (i * (1 / pressure->freq)) / N;
+    ti[i] = (i * (1 / pressure->per)) / N;
 
   // Use above info to gen sine points
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
     yi[i] = pressure->offset
             + ((pressure->ampl / 2)
-               * pow (-1.0f, floor ((2 * ti[i]) / (1 / pressure->freq))));
+               * pow (-1.0f, floor ((2 * ti[i]) / (1 / pressure->per))));
 
   // Ramp to initial offset
   while (!pressure_ramp_v3 (pressure, 1, pressure->offset, 0.1f))
@@ -389,14 +389,14 @@ pressure_calib_dynam_ramp (struct Pressure *pressure)
   float per = 1.0f / freq;
   */
   float sw = 0.5f; // switching in sec
-  uint8_t N = 1 / (pressure->freq * sw);
-  float per = 1.0f / pressure->freq;
+  uint8_t N = 1 / (pressure->per * sw);
+  float per = 1.0f / pressure->per;
   float half_ampl = pressure->ampl / 2.0f;
 
   // Get linspaced time array
   float ti[N];
   for (uint8_t i = 0; i < N; i++)
-    ti[i] = (i * (1 / pressure->freq)) / N;
+    ti[i] = (i * (1 / pressure->per)) / N;
 
   // Use above info to gen sine points
   float yi[N];
@@ -461,18 +461,18 @@ pressure_calib_dynam_sine (struct Pressure *pressure)
   float freq = 0.05f;
   */
   float sw = 0.5f; // switching in sec
-  uint8_t N = 1 / (pressure->freq * sw);
+  uint8_t N = 1 / (pressure->per * sw);
 
   // Get linspaced time array
   float ti[N];
   for (uint8_t i = 0; i < N; i++)
-    ti[i] = (i * (1 / pressure->freq)) / N;
+    ti[i] = (i * (1 / pressure->per)) / N;
 
   // Use above info to gen sine points
   float yi[N];
   for (uint32_t i = 0; i < N; i++)
     yi[i] = pressure->offset
-            + ((pressure->ampl / 2) * sin (2 * M_PI * pressure->freq * ti[i]));
+            + ((pressure->ampl / 2) * sin (2 * M_PI * pressure->per * ti[i]));
 
   // Ramp to initial offset
   while (!pressure_ramp_v3 (pressure, 1, pressure->offset, 0.1f))
