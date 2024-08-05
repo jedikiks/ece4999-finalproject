@@ -174,12 +174,12 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
         {
         case -1:
           if (pressure->menu.prev_val > 0.0f)
-            pressure->menu.prev_val -= 0.10f;
+            pressure->menu.prev_val -= 1.0f;
           break;
 
         case 1:
-          if (pressure->menu.prev_val < 0.50f)
-            pressure->menu.prev_val += 0.10f;
+          if (pressure->menu.prev_val < 20.0f)
+            pressure->menu.prev_val += 1.0f;
           break;
 
         case 2:
