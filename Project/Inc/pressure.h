@@ -26,7 +26,7 @@ struct Menu
 struct Pressure
 {
   float val;
-  float freq;
+  float per;
   float ampl;
   float offset;
   float target;

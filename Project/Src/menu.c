@@ -161,7 +161,7 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
 
         case 2:
           pressure_lcd_state = STATE_PER_SETVAL;
-          pressure->menu.prev_val = pressure->freq;
+          pressure->menu.prev_val = pressure->per;
           break;
 
         default:
@@ -174,17 +174,17 @@ menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt)
         {
         case -1:
           if (pressure->menu.prev_val > 0.0f)
-            pressure->menu.prev_val -= 0.10f;
+            pressure->menu.prev_val -= 1.0f;
           break;
 
         case 1:
-          if (pressure->menu.prev_val < 0.50f)
-            pressure->menu.prev_val += 0.10f;
+          if (pressure->menu.prev_val < 20.0f)
+            pressure->menu.prev_val += 1.0f;
           break;
 
         case 2:
           pressure_lcd_state = STATE_PER;
-          pressure->freq = pressure->menu.prev_val;
+          pressure->per = pressure->menu.prev_val;
           break;
 
         default:
@@ -376,7 +376,7 @@ menu_sm (struct Pressure *pressure)
 
     case STATE_PER:
       menu_sm_printinfo (pressure); // Info
-      menu_sm_println (" Peri: %.2f sec", pressure->freq, 0,
+      menu_sm_println (" Peri: %.2f sec", pressure->per, 0,
                        3); // Option
 
       I2C_LCD_SetCursor (I2C_LCD_1, 19, 3);
