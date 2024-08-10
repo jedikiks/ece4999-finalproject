@@ -4,6 +4,9 @@
 #include "main.h"
 #include <stdint.h>
 
+// Uncomment this to enable sim output:
+//#define DEBUG
+
 #define PRESSURE_UART_TX_PIN GPIO_PIN_2
 #define PRESSURE_UART_RX_PIN GPIO_PIN_3
 
@@ -14,7 +17,6 @@
 #define PRESSURE_SENSOR_RANGE 3.3f // Vdc
 #define ADC_READ_TIME 100          // us
 #define ADC_RESOLUTION 4096.0f     // 12 bit
-
 #define PRESSURE_PWM_FREQ 1000 // ms
 
 struct Menu

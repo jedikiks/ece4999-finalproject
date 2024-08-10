@@ -160,8 +160,10 @@ pressure_ramp_v3 (struct Pressure *pressure, uint8_t dev, float target,
           while (!tim3_flg)
             ;
 
+          #ifdef DEBUG
           if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_1) == GPIO_PIN_SET)
             pressure->val += 2.78 / 10;
+          #endif
 
           if ((pressure->val < 0.0000005f) && (pressure->val > -0.0000005f))
             pressure->val = 0;
@@ -197,8 +199,10 @@ pressure_ramp_v3 (struct Pressure *pressure, uint8_t dev, float target,
           while (!tim3_flg)
             ;
 
+          #ifdef DEBUG
           if (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_4) == GPIO_PIN_SET)
             pressure->val -= 2.78 / 10;
+          #endif
 
           if ((pressure->val < 0.0000005f) && (pressure->val > -0.0000005f))
             pressure->val = 0;
@@ -273,13 +277,13 @@ pressure_uart_tx (struct Pressure *pressure)
 void
 pressure_sensor_read (struct Pressure *pressure, float target)
 {
-  /*
-  HAL_ADC_PollForConversion (pressure.hadc, HAL_MAX_DELAY);
-  pressure.val = HAL_ADC_GetValue (pressure.hadc)
+  HAL_ADC_PollForConversion (pressure->hadc, HAL_MAX_DELAY);
+  pressure->val = HAL_ADC_GetValue (pressure->hadc)
                   * (PRESSURE_SENSOR_RANGE / ADC_RESOLUTION);
- */
-  pressure->tim3_elapsed = tim3_elapsed;
+
   pressure_uart_tx (pressure);
+
+  pressure->tim3_elapsed = tim3_elapsed;
   menu_sm (pressure);
 }
 
