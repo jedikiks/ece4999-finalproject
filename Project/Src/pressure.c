@@ -59,6 +59,14 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
                                .menu.prev_val = 0 };
 
   pressure_init (&pressure);
+
+  pressure.offset = 10.0f;
+  pressure_calib_static (&pressure);
+
+  while (1)
+    ;
+
+  /*
   menu_sm_init ();
   menu_sm (&pressure);
 
@@ -118,6 +126,7 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
           menu_sm (&pressure);
         }
     }
+    */
 
   pressure_cleanup (&pressure);
 }
@@ -342,7 +351,9 @@ pressure_sensor_read (struct Pressure *pressure, float target)
   pressure_uart_tx (pressure);
 
   pressure->tim3_elapsed = tim3_elapsed;
+  /*
   menu_sm (pressure);
+  */
 }
 
 void
