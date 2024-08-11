@@ -122,6 +122,64 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
   pressure_cleanup (&pressure);
 }
 
+void
+pressure_ramp_noconstrain (struct Pressure *pressure, uint8_t dev, float target)
+{
+  switch (dev)
+    {
+    case 1:
+      HAL_TIM_Base_Start_IT (pressure->htim_upd);
+      HAL_GPIO_WritePin (GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+
+      while (pressure->val < target)
+        {
+          if (userint_flg)
+            break;
+
+          while (!tim3_flg)
+            ;
+
+          if ((pressure->val < 0.0000005f) && (pressure->val > -0.0000005f))
+            pressure->val = 0;
+
+          // Read in pressure value
+          pressure_sensor_read (pressure, target);
+
+          tim3_flg = 0;
+        }
+
+      HAL_GPIO_WritePin (GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+      break;
+
+    case 2:
+      HAL_TIM_Base_Start_IT (pressure->htim_upd);
+      HAL_GPIO_WritePin (GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
+
+      while (tim3_wraps < 5)
+        {
+          if (userint_flg)
+            break;
+
+          while (!tim3_flg)
+            ;
+
+          if ((pressure->val < 0.0000005f) && (pressure->val > -0.0000005f))
+            pressure->val = 0;
+
+          // Read in pressure value
+          pressure_sensor_read (pressure, target);
+
+          tim3_wraps++;
+          tim3_flg = 0;
+        }
+
+      HAL_GPIO_WritePin (GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
+      break;
+    }
+
+  HAL_TIM_Base_Stop_IT (pressure->htim_upd);
+}
+
 uint8_t
 pressure_ramp_v3 (struct Pressure *pressure, uint8_t dev, float target,
                   float perr)
@@ -355,6 +413,7 @@ pressure_calib_dynam_step (struct Pressure *pressure)
       if (userint_flg)
         break;
 
+      //TODO: remove this for loop V
       for (long i = 0; i < N; i++)
         {
           if (userint_flg)
