@@ -48,14 +48,14 @@ menu_sm_printinfo (struct Pressure *pressure)
   menu_sm_println ("Cur:  %.1f psi", pressure->val, 0, 0);
 
   // Deviation from target
-  float devi = ((pressure->val - pressure->target) * 100) / pressure->target;
-  if (isnan (devi))
-    devi = 0.0f;
+  //float devi = ((pressure->val - pressure->target) * 100) / pressure->target;
+  //if (isnan (devi))
+  //  devi = 0.0f;
 
-  if (!isinf(devi))
-    menu_sm_println ("Dev:  %.1f%%", devi, 0, 1);
-  else
-    menu_sm_printstr("Dev:  %s", "--", 0, 1);
+  //if (!isinf(devi))
+  //  menu_sm_println ("Dev:  %.1f%%", devi, 0, 1);
+  //else
+  //  menu_sm_printstr("Dev:  %s", "--", 0, 1);
 
   // Time
   menu_sm_println ("Time: %.1f sec", pressure->tim3_elapsed, 0, 2);

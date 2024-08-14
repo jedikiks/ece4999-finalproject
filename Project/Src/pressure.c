@@ -2,6 +2,7 @@
 #include "I2C_LCD.h"
 #include "menu.h"
 #include "rotary.h"
+#include "stm32f4xx_hal.h"
 
 #include <math.h>
 #include <stdint.h>
@@ -48,7 +49,7 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
                                .target = 0.0f,
                                .per = 0.05f,
                                .ampl = 1.0f,
-                               .offset = 0.0f,
+                               .offset = 10.0f,
                                .huart = huart,
                                .hadc = hadc,
                                .htim_pwm = htim_pwm,
@@ -73,6 +74,9 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
   int8_t rotary_inpt;
   while (1)
     {
+      HAL_Delay(25);
+      pressure_sensor_read (&pressure, 0);
+
       rotary_inpt = rotary_get_input ();
 
       if (rotary_inpt != 0)
@@ -118,8 +122,11 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
 
           // TODO: replace this with an actual depressurization function;
           //   just enable the exhaust and read
+          /*
           while (pressure.val >= 0.0000005f)
             pressure_ramp_v3 (&pressure, 2, 0.0f, 0.10f);
+            */
+          pressure_ramp_noconstrain(pressure, 2, 0);
 
           pressure.menu.output = 0;
           menu_sm_setstate (&pressure, 2);
@@ -164,7 +171,7 @@ pressure_ramp_noconstrain (struct Pressure *pressure, uint8_t dev, float target)
       HAL_TIM_Base_Start_IT (pressure->htim_upd);
       HAL_GPIO_WritePin (GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
 
-      while (tim3_wraps < 5)
+      while (pressure->val > target)
         {
           if (userint_flg)
             break;
@@ -318,8 +325,6 @@ void
 pressure_init (struct Pressure *pressure)
 {
   HAL_NVIC_DisableIRQ (EXTI9_5_IRQn);
-
-  HAL_ADC_Start (pressure->hadc);
   I2C_LCD_Init (I2C_LCD_1);
 }
 
@@ -344,9 +349,10 @@ pressure_uart_tx (struct Pressure *pressure)
 void
 pressure_sensor_read (struct Pressure *pressure, float target)
 {
-  HAL_ADC_PollForConversion (pressure->hadc, HAL_MAX_DELAY);
-  pressure->val = HAL_ADC_GetValue (pressure->hadc)
-                  * (PRESSURE_SENSOR_RANGE / ADC_RESOLUTION);
+  HAL_ADC_Start (pressure->hadc);
+  HAL_ADC_PollForConversion (pressure->hadc, 20);
+  uint16_t pread = HAL_ADC_GetValue (pressure->hadc);
+  pressure->val = pread * (PRESSURE_SENSOR_RANGE / ADC_RESOLUTION) * 200;
 
   pressure_uart_tx (pressure);
 
@@ -363,11 +369,14 @@ pressure_calib_static (struct Pressure *pressure)
   userint_flg_lck = 0;
 
   // Ramp to initial offset
+  /*
   while (!pressure_ramp_v3 (pressure, 1, pressure->offset, 0.1f))
     {
       if (userint_flg)
         break;
     }
+    */
+  pressure_ramp_noconstrain(pressure, 1, pressure->offset);
 
   // Display results until user interrupt
   HAL_TIM_Base_Start_IT (pressure->htim_upd);
