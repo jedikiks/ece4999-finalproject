@@ -48,7 +48,7 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
   struct Pressure pressure = { .val = 0.0f,
                                .target = 0.0f,
                                .per = 0.05f,
-                               .ampl = 1.0f,
+                               .ampl = 10.0f,
                                .offset = 10.0f,
                                .huart = huart,
                                .hadc = hadc,
@@ -126,7 +126,14 @@ pressure_main (UART_HandleTypeDef *huart, ADC_HandleTypeDef *hadc,
           while (pressure.val >= 0.0000005f)
             pressure_ramp_v3 (&pressure, 2, 0.0f, 0.10f);
             */
-          pressure_ramp_noconstrain(pressure, 2, 0);
+          while (pressure.val >= 0.0000005f)
+          {
+            HAL_Delay(25);
+            pressure_sensor_read (&pressure, 0);
+            HAL_GPIO_WritePin (GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
+          }
+
+          HAL_GPIO_WritePin (GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
 
           pressure.menu.output = 0;
           menu_sm_setstate (&pressure, 2);
@@ -352,7 +359,9 @@ pressure_sensor_read (struct Pressure *pressure, float target)
   HAL_ADC_Start (pressure->hadc);
   HAL_ADC_PollForConversion (pressure->hadc, 20);
   uint16_t pread = HAL_ADC_GetValue (pressure->hadc);
-  pressure->val = pread * (PRESSURE_SENSOR_RANGE / ADC_RESOLUTION) * 200;
+  //pressure->val = pread * (PRESSURE_SENSOR_RANGE / ADC_RESOLUTION);
+  //pressure->val = (pread * 3.3f) / 4096;
+  pressure->val = (pread * 200) / 4096.0f;
 
   pressure_uart_tx (pressure);
 
