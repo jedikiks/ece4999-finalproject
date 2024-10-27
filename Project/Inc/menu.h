@@ -1,8 +1,17 @@
+/**
+ * @file menu.h
+ *
+ * @brief LCD menu header
+ *
+ *        Contains custom characters and function prototypes for the LCD menu.
+ */
+
 #ifndef MENU_H_
 #define MENU_H_
 
 #include "pressure.h"
 
+/* Cursor custom character for LCD */
 static unsigned char lcd_char_arrow[8] = {
   0b00000, //
   0b00100, //
@@ -14,6 +23,7 @@ static unsigned char lcd_char_arrow[8] = {
   0b00000  //
 };
 
+/* Scroll bar (located on botom right of LCD) custom characters for LCD */
 static unsigned char lcd_char_scr_3rd_1_3[8] = {
   0b00011, //
   0b00011, //
@@ -91,37 +101,11 @@ static unsigned char lcd_char_scr_qt_4_4[8] = {
   0b00011  //
 };
 
+/* Waveform strings that are iterated through like values */
 static const char *const waveforms[] = { "Const", "Step", "Ramp", "Sine" };
 
-/*
- * @brief Initializes the menu driver for the pressure subsystem.
- *
- * Adds custom chars listed under menu.h to I2C_LCD_1.
- *
- * @retval none
- */
 void menu_sm_init (void);
-
-/*
-** @brief State machine that controls the UI displayed on the LCD.
-**
-** @param pressure pointer to a Pressure struct
-**
-** @retval none
-*/
 void menu_sm (struct Pressure *pressure);
-
-/*
-** @brief Sets the state of the LCD state machine based off of rotary_inpt
-**
-** @param pressure pointer to a Pressure struct
-**
-** @retval The exit status of the function
-**   1 - If
-**
-*/
 void menu_sm_setstate (struct Pressure *pressure, int8_t rotary_inpt);
-
-uint8_t menu_get_waveform (void);
 
 #endif // MENU_H_
